@@ -1,75 +1,65 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { login } from "../../services/authService";
 
 const Login = () => {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  const handleLogin = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-
-    // 🔹 Dummy authentication (replace with backend API later)
-    if (email === "admin@gmail.com" && password === "admin123") {
-      localStorage.setItem("role", "ADMIN");
-      localStorage.setItem("token", "dummy-admin-token");
-      navigate("/admin");
-    } else if (email === "staff@gmail.com" && password === "staff123") {
-      localStorage.setItem("role", "STAFF");
-      localStorage.setItem("token", "dummy-staff-token");
-      navigate("/staff");
-    } else {
-      setError("Invalid email or password");
+    try {
+      const user = login(username, password);
+      if (user.role === "admin") {
+        navigate("/admin/dashboard");
+      } else {
+        navigate("/staff/dashboard");
+      }
+    } catch (err) {
+      setError(err.message);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-r from-blue-600 to-blue-800">
-      <div className="bg-white p-8 rounded-2xl shadow-lg w-full max-w-md">
-        <h2 className="text-2xl font-bold text-center text-blue-700 mb-6">
-          Attendance Management System
-        </h2>
-        {error && (
-          <div className="bg-red-100 text-red-600 p-2 rounded-md mb-4 text-center">
-            {error}
-          </div>
-        )}
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Email
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Enter your email"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Password
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Enter your password"
-              required
-            />
-          </div>
-          <button
-            type="submit"
-            className="w-full bg-blue-700 text-white py-2 px-4 rounded-lg hover:bg-blue-800 transition duration-300 font-medium"
+    <div className="flex justify-center items-center h-screen bg-gray-100">
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white p-8 rounded-lg shadow-md w-96"
+      >
+        <h2 className="text-2xl font-bold mb-4">Login</h2>
+        {error && <p className="text-red-500">{error}</p>}
+        <input
+          type="text"
+          placeholder="Username"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          className="w-full mb-4 p-2 border rounded"
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="w-full mb-4 p-2 border rounded"
+        />
+        <button
+          type="submit"
+          className="w-full bg-blue-500 text-white py-2 rounded"
+        >
+          Login
+        </button>
+        <p className="mt-4 text-sm">
+          Don’t have an account?{" "}
+          <span
+            onClick={() => navigate("/register")}
+            className="text-blue-600 cursor-pointer"
           >
-            Login
-          </button>
-        </form>
-      </div>
+            Register
+          </span>
+        </p>
+      </form>
     </div>
   );
 };

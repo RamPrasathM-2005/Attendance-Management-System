@@ -1,12 +1,11 @@
 import React from "react";
-import AdminLayout from "../../layouts/AdminLayout";
 
 const ManageStudents = () => {
   return (
-    <AdminLayout>
-      <h2 className="text-2xl font-bold mb-4">Manage Students</h2>
-      <p className="text-gray-600">Here you can add students and assign them to batches.</p>
-    </AdminLayout>
+    <div>
+      <h1 className="text-2xl font-bold mb-4">Manage Students</h1>
+      <p>Add students and enroll them into courses through batch + semester mapping.</p>
+    </div>
   );
 };
 

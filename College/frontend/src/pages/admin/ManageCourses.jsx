@@ -1,12 +1,11 @@
 import React from "react";
-import AdminLayout from "../../layouts/AdminLayout";
 
 const ManageCourses = () => {
   return (
-    <AdminLayout>
-      <h2 className="text-2xl font-bold mb-4">Manage Courses</h2>
-      <p className="text-gray-600">Here you can add, edit, and delete courses.</p>
-    </AdminLayout>
+    <div>
+      <h1 className="text-2xl font-bold mb-4">Manage Courses</h1>
+      <p>Create courses for each semester with code, type, category, and marks range.</p>
+    </div>
   );
 };
 

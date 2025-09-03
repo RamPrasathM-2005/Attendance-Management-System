@@ -1,7 +1,12 @@
-export const getRole = () => localStorage.getItem("role");
-export const getToken = () => localStorage.getItem("token");
+// src/utils/auth.js
 
-export const logout = () => {
-  localStorage.removeItem("role");
-  localStorage.removeItem("token");
+import { getCurrentUser } from "../services/authService";
+
+export const isAuthenticated = () => {
+  return getCurrentUser() !== null;
+};
+
+export const getUserRole = () => {
+  const user = getCurrentUser();
+  return user ? user.role : null;
 };

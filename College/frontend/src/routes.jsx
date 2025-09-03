@@ -21,13 +21,15 @@ import Timetable from "./pages/admin/Timetable";
 
 // Staff Pages
 import StaffDashboard from "./pages/staff/Dashboard";
-import MyCourses from "./pages/staff/MyCourses";
 import Attendance from "./pages/staff/Attendance";
 import MarksAllocation from "./pages/staff/MarksAllocation";
 import Reports from "./pages/staff/Reports";
+import Options from "./pages/staff/Options";
+
 
 // NotFound
 import NotFound from "./pages/NotFound";
+import MarkAllocation from "./pages/staff/MarksAllocation";
 
 // Inline ProtectedRoute
 // eslint-disable-next-line react-refresh/only-export-components
@@ -80,13 +82,15 @@ const routes = [
       </ProtectedRoute>
     ),
     children: [
-      { index: true, element: <StaffDashboard /> }, // /staff default
+      { index: true, element: <StaffDashboard /> },
       { path: "dashboard", element: <StaffDashboard /> },
-      { path: "my-courses", element: <MyCourses /> },
       { path: "attendance", element: <Attendance /> },
       { path: "marks-allocation", element: <MarksAllocation /> },
       { path: "reports", element: <Reports /> },
-      { path: "*", element: <NotFound /> } // catch-all staff
+      { path: "options/:courseId", element: <Options /> },
+      { path: "marks-allocation/:courseId", element: <MarksAllocation /> },
+      
+      { path: "*", element: <NotFound /> }
     ]
   },
 

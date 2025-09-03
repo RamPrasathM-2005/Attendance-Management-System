@@ -7,7 +7,6 @@ const StaffSidebar = () => {
 
   const sidebarItems = [
     { to: "/staff/dashboard", icon: Home, label: "Dashboard" },
-    { to: "/staff/my-courses", icon: BookMarked, label: "My Courses" },
     { to: "/staff/attendance", icon: UserCheck, label: "Attendance" },
     { to: "/staff/marks-allocation", icon: Award, label: "Marks Allocation" },
     { to: "/staff/reports", icon: BarChart3, label: "Reports" }

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Users, 
-  BookOpen, 
-  GraduationCap, 
+import {
+  Users,
+  BookOpen,
+  GraduationCap,
   Calendar,
   Plus,
   Settings,
@@ -21,6 +21,9 @@ import {
 } from 'lucide-react';
 
 const AdminDashboard = () => {
+  const [scrollPosition, setScrollPosition] = useState(0);
+  const [isScrolling, setIsScrolling] = useState(true);
+
   // Mock data - replace with actual API calls
   const [dashboardData, setDashboardData] = useState({
     totalSemesters: 8,
@@ -39,10 +42,7 @@ const AdminDashboard = () => {
     ]
   });
 
-  // Sliding carousel state
-  const [currentActionIndex, setCurrentActionIndex] = useState(0);
-
-  // All action options for sliding carousel
+  // All action options
   const allActions = [
     { name: "Create Semester", icon: <CalendarPlus className="w-4 h-4" />, action: () => navigateTo("create-semester") },
     { name: "View Semesters", icon: <Eye className="w-4 h-4" />, action: () => navigateTo("semesters") },
@@ -58,30 +58,30 @@ const AdminDashboard = () => {
     { name: "Allocate Students", icon: <Settings className="w-4 h-4" />, action: () => navigateTo("allocate-students") }
   ];
 
-  // Auto-slide effect
+  // Auto-scroll effect
   useEffect(() => {
     const interval = setInterval(() => {
-      setCurrentActionIndex((prev) => (prev + 1) % Math.max(1, allActions.length - 5));
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
+      if (isScrolling) {
+        setScrollPosition(prev => {
+          const maxScroll = allActions.length * 116; // Each button is ~116px with gap
+          if (prev >= maxScroll) {
+            return 0; // Reset to start for seamless loop
+          }
+          return prev + 1;
+        });
+      }
+    }, 30);
 
-  // Navigation functions
+    return () => clearInterval(interval);
+  }, [isScrolling, allActions.length]);
+
+  // Navigation function
   const navigateTo = (page) => {
     console.log(`Navigating to: ${page}`);
-    alert(`Redirecting to ${page} page...`);
-  };
-
-  const slideLeft = () => {
-    setCurrentActionIndex((prev) => Math.max(0, prev - 1));
-  };
-
-  const slideRight = () => {
-    setCurrentActionIndex((prev) => Math.min(allActions.length - 6, prev + 1));
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 overflow-x-hidden">
+    <div className="min-h-screen bg-gray-50 p-6">
       {/* Header Section */}
       <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
         <h1 className="text-3xl font-bold text-gray-800 mb-2">Admin Dashboard</h1>
@@ -90,7 +90,7 @@ const AdminDashboard = () => {
 
       {/* Compact Stats Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="min-w-[200px] bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500">
+        <div className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500">
           <div className="flex items-center">
             <Calendar className="w-6 h-6 text-blue-500 mr-3" />
             <div>
@@ -99,8 +99,7 @@ const AdminDashboard = () => {
             </div>
           </div>
         </div>
-        
-        <div className="min-w-[200px] bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-400">
+        <div className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-400">
           <div className="flex items-center">
             <BookOpen className="w-6 h-6 text-blue-400 mr-3" />
             <div>
@@ -109,8 +108,7 @@ const AdminDashboard = () => {
             </div>
           </div>
         </div>
-
-        <div className="min-w-[200px] bg-white p-4 rounded-lg shadow-sm border-l-4 border-slate-500">
+        <div className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-slate-500">
           <div className="flex items-center">
             <Users className="w-6 h-6 text-slate-500 mr-3" />
             <div>
@@ -119,8 +117,7 @@ const AdminDashboard = () => {
             </div>
           </div>
         </div>
-
-        <div className="min-w-[200px] bg-white p-4 rounded-lg shadow-sm border-l-4 border-gray-500">
+        <div className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-gray-500">
           <div className="flex items-center">
             <GraduationCap className="w-6 h-6 text-gray-500 mr-3" />
             <div>
@@ -131,37 +128,40 @@ const AdminDashboard = () => {
         </div>
       </div>
 
-      {/* Sliding Actions Row */}
+      {/* Auto-Scrolling Management Options */}
       <div className="bg-white rounded-lg shadow-sm p-4 mb-8">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-semibold text-gray-800">Management Options</h3>
-          <div className="flex gap-2">
-            <button 
-              onClick={slideLeft}
-              className="p-1 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4 text-gray-600" />
-            </button>
-            <button 
-              onClick={slideRight}
-              className="p-1 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
-            >
-              <ChevronRight className="w-4 h-4 text-gray-600" />
-            </button>
-          </div>
-        </div>
-        
-        <div className="overflow-hidden">
-          <div 
-            className="flex gap-3 transition-transform duration-500 ease-in-out"
-            style={{ transform: `translateX(-${(currentActionIndex * 140) % (allActions.length * 140)}px)` }}
+          <button
+            onClick={() => setIsScrolling(!isScrolling)}
+            className="px-3 py-1 bg-blue-600 text-white text-xs rounded-full hover:bg-blue-700 transition-colors"
           >
-            {/* Render actions multiple times for infinite scroll effect */}
+            {isScrolling ? '⏸️ Pause' : '▶️ Play'}
+          </button>
+        </div>
+        <div className="overflow-hidden relative bg-gray-50 rounded-lg p-2" style={{ height: '120px' }}>
+          <div 
+            className="flex gap-3 absolute top-2 left-2"
+            style={{ 
+              transform: `translateX(-${scrollPosition}px)`,
+              transition: 'transform 0.1s linear'
+            }}
+          >
+            {/* Render items twice for seamless loop */}
             {[...allActions, ...allActions, ...allActions].map((action, index) => (
               <button
-                key={index}
-                onClick={action.action}
-                className="min-w-[130px] flex flex-col items-center p-3 bg-gray-50 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-all duration-200"
+                key={`action-${index}`}
+                onClick={() => {
+                  setIsScrolling(false);
+                  action.action();
+                }}
+                className="flex flex-col items-center justify-center p-3 bg-white border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-all duration-200 shadow-sm"
+                style={{ 
+                  minWidth: '100px',
+                  maxWidth: '100px',
+                  height: '100px',
+                  flexShrink: 0
+                }}
               >
                 <div className="text-blue-600 mb-2">
                   {action.icon}
@@ -187,7 +187,6 @@ const AdminDashboard = () => {
               <CalendarPlus className="w-5 h-5 mr-2" />
               <span className="text-sm font-medium">New Semester</span>
             </button>
-            
             <button
               onClick={() => navigateTo("create-course")}
               className="flex items-center justify-center p-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -195,7 +194,6 @@ const AdminDashboard = () => {
               <BookPlus className="w-5 h-5 mr-2" />
               <span className="text-sm font-medium">New Course</span>
             </button>
-
             <button
               onClick={() => navigateTo("allocate-staff")}
               className="flex items-center justify-center p-4 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors"
@@ -203,7 +201,6 @@ const AdminDashboard = () => {
               <UserCog className="w-5 h-5 mr-2" />
               <span className="text-sm font-medium">Staff Allocation</span>
             </button>
-
             <button
               onClick={() => navigateTo("allocate-students")}
               className="flex items-center justify-center p-4 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
@@ -211,7 +208,6 @@ const AdminDashboard = () => {
               <UserPlus className="w-5 h-5 mr-2" />
               <span className="text-sm font-medium">Student Allocation</span>
             </button>
-
             <button
               onClick={() => navigateTo("timetable")}
               className="flex items-center justify-center p-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
@@ -219,7 +215,6 @@ const AdminDashboard = () => {
               <Clock className="w-5 h-5 mr-2" />
               <span className="text-sm font-medium">Timetable</span>
             </button>
-
             <button
               onClick={() => navigateTo("reports")}
               className="flex items-center justify-center p-4 bg-slate-500 text-white rounded-lg hover:bg-slate-600 transition-colors"
@@ -232,8 +227,6 @@ const AdminDashboard = () => {
 
         {/* Right Column - Recent Data */}
         <div className="space-y-4">
-          
-          {/* Recent Semesters */}
           <div className="bg-white rounded-lg shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-md font-semibold text-gray-800">Recent Semesters</h4>
@@ -260,8 +253,6 @@ const AdminDashboard = () => {
               ))}
             </div>
           </div>
-
-          {/* Recent Courses */}
           <div className="bg-white rounded-lg shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-md font-semibold text-gray-800">Recent Courses</h4>
@@ -286,8 +277,6 @@ const AdminDashboard = () => {
               ))}
             </div>
           </div>
-
-          {/* System Status */}
           <div className="bg-white rounded-lg shadow-sm p-4">
             <h4 className="text-md font-semibold text-gray-800 mb-3">System Status</h4>
             <div className="space-y-2">

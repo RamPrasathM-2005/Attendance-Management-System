@@ -10,7 +10,7 @@ const ToolModal = ({ show, newTool, setNewTool, editingTool, selectedCO, handleS
         <div className="p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-medium text-gray-900">
-              {editingTool ? "Edit Tool" : "Add Tool"} - {selectedCO?.name}
+              {editingTool ? "Edit Tool" : "Add Tool"} - {selectedCO?.coNumber}
             </h3>
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
               <X className="h-5 w-5" />
@@ -21,26 +21,11 @@ const ToolModal = ({ show, newTool, setNewTool, editingTool, selectedCO, handleS
               <label className="block text-sm font-medium text-gray-700 mb-1">Tool Name</label>
               <input
                 type="text"
-                value={newTool.name}
-                onChange={(e) => setNewTool({ ...newTool, name: e.target.value })}
+                value={newTool.toolName}
+                onChange={(e) => setNewTool({ ...newTool, toolName: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="e.g., Quiz 1"
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-              <select
-                value={newTool.type}
-                onChange={(e) => setNewTool({ ...newTool, type: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="quiz">Quiz</option>
-                <option value="assignment">Assignment</option>
-                <option value="presentation">Presentation</option>
-                <option value="project">Project</option>
-                <option value="exam">Exam</option>
-                <option value="lab">Lab Work</option>
-              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Maximum Marks</label>
@@ -58,11 +43,11 @@ const ToolModal = ({ show, newTool, setNewTool, editingTool, selectedCO, handleS
               <input
                 type="number"
                 min="0"
-                max="100"
+                max={selectedCO.weightage}
                 value={newTool.weightage}
                 onChange={(e) => setNewTool({ ...newTool, weightage: parseInt(e.target.value) || 0 })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="30"
+                placeholder={`Max: ${selectedCO.weightage}`}
               />
             </div>
           </div>

@@ -18,23 +18,13 @@ const COModal = ({ show, newCO, setNewCO, editingCO, handleSaveCO, onClose }) =>
           </div>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">CO Number</label>
               <input
                 type="text"
-                value={newCO.name}
-                onChange={(e) => setNewCO({ ...newCO, name: e.target.value })}
+                value={newCO.coNumber}
+                onChange={(e) => setNewCO({ ...newCO, coNumber: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="e.g., CO1"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-              <textarea
-                value={newCO.description}
-                onChange={(e) => setNewCO({ ...newCO, description: e.target.value })}
-                rows="3"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Describe the course outcome..."
               />
             </div>
             <div>

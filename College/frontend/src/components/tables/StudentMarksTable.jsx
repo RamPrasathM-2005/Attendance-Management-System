@@ -13,17 +13,17 @@ const StudentMarksTable = ({ coId, tool, students, updateStudentMark }) => {
         </thead>
         <tbody>
           {students.map((student) => (
-            <tr key={student.id} className="border-b border-gray-100">
-              <td className="py-2">{student.rollNo}</td>
+            <tr key={student.rollnumber} className="border-b border-gray-100">
+              <td className="py-2">{student.rollnumber}</td>
               <td className="py-2">{student.name}</td>
               <td className="py-2">
                 <input
                   type="number"
                   min="0"
                   max={tool.maxMarks}
-                  value={tool.marks?.[student.id] || ""}
+                  value={tool.marks?.[student.rollnumber] || ""}
                   onChange={(e) =>
-                    updateStudentMark(coId, tool.id, student.id, e.target.value)
+                    updateStudentMark(coId, tool.toolId, student.rollnumber, e.target.value)
                   }
                   className="w-20 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />

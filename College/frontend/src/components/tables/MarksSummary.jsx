@@ -15,8 +15,8 @@ const MarksSummary = ({ courseOutcomes, students, calculateCOMarks, calculateInt
               <th className="text-left py-3">Roll No</th>
               <th className="text-left py-3">Student Name</th>
               {courseOutcomes.map((co) => (
-                <th key={co.id} className="text-center py-3">
-                  {co.name}
+                <th key={co.coId} className="text-center py-3">
+                  {co.coNumber}
                   <br />
                   <span className="text-xs text-gray-500">({co.weightage}%)</span>
                 </th>
@@ -26,16 +26,16 @@ const MarksSummary = ({ courseOutcomes, students, calculateCOMarks, calculateInt
           </thead>
           <tbody>
             {students.map((student) => (
-              <tr key={student.id} className="border-b border-gray-100">
-                <td className="py-3">{student.rollNo}</td>
+              <tr key={student.rollnumber} className="border-b border-gray-100">
+                <td className="py-3">{student.rollnumber}</td>
                 <td className="py-3">{student.name}</td>
                 {courseOutcomes.map((co) => (
-                  <td key={co.id} className="text-center py-3">
-                    {calculateCOMarks(co, student.id)}
+                  <td key={co.coId} className="text-center py-3">
+                    {calculateCOMarks(co, student.rollnumber)}
                   </td>
                 ))}
                 <td className="text-center py-3 font-medium text-blue-600">
-                  {calculateInternalMarks(student.id)}
+                  {calculateInternalMarks(student.rollnumber)}
                 </td>
               </tr>
             ))}

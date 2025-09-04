@@ -27,6 +27,7 @@ import Reports from "./pages/staff/Reports";
 import Options from "./pages/staff/Options";
 
 
+
 // NotFound
 import NotFound from "./pages/NotFound";
 import MarkAllocation from "./pages/staff/MarksAllocation";
@@ -89,6 +90,7 @@ const routes = [
       { path: "reports", element: <Reports /> },
       { path: "options/:courseId", element: <Options /> },
       { path: "marks-allocation/:courseId", element: <MarksAllocation /> },
+       { path: "attendance/:courseId", element: <Attendance /> }, 
       
       { path: "*", element: <NotFound /> }
     ]

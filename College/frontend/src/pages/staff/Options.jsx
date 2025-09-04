@@ -50,9 +50,10 @@ const Options = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b mt-10">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b mt-10 py-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center justify-between">
             <div className="flex items-center">
               <button
                 onClick={handleBack}
@@ -61,13 +62,16 @@ const Options = () => {
                 <ChevronLeft className="h-5 w-5" />
               </button>
               <div>
-                <h1 className="text-xl font-semibold text-gray-900">{course.title}</h1>
+                <h1 className="text-xl font-semibold text-gray-900">
+                  {course.title}
+                </h1>
                 <p className="text-sm text-gray-500">{course.semester}</p>
               </div>
             </div>
           </div>
         </div>
       </div>
+
 
       {/* Options Grid */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

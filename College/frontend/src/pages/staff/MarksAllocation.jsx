@@ -58,7 +58,7 @@ const MarkAllocation = () => {
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex flex-wrap items-center justify-between py-6 gap-3">
             <div className="flex items-center">
               <button
                 onClick={() => navigate(-1)}
@@ -71,16 +71,16 @@ const MarkAllocation = () => {
                 <p className="text-sm text-gray-500">{course.name}</p>
               </div>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex flex-wrap items-center space-x-2">
               <button
                 onClick={() => setShowCOModal(true)}
-                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center"
+                className="bg-blue-600 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-md hover:bg-blue-700 flex items-center text-sm"
               >
                 <Plus className="h-4 w-4 mr-2" /> Add Course Outcome
               </button>
               <button
                 onClick={handleSaveCOs}
-                className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center"
+                className="bg-green-600 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-md hover:bg-green-700 flex items-center text-sm"
               >
                 Save COs & Tools
               </button>
@@ -88,6 +88,8 @@ const MarkAllocation = () => {
           </div>
         </div>
       </div>
+
+
 
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

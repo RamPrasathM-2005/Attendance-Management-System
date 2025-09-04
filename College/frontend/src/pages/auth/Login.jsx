@@ -1,65 +1,239 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { User, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { login } from "../../services/authService";
+
+const InputField = ({
+  label,
+  type = "text",
+  icon: Icon,
+  value,
+  onChange,
+  placeholder,
+  showPassword,
+  setShowPassword,
+  required = true,
+}) => {
+  return (
+    <div className="space-y-2">
+      <label className="text-sm font-semibold text-gray-700">{label}</label>
+      <div className="relative">
+        {Icon && (
+          <Icon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+        )}
+        <input
+          type={type === "password" && showPassword ? "text" : type}
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          required={required}
+          className={`w-full ${
+            type === "password" ? "pl-12 pr-12" : "pl-12 pr-4"
+          } py-3.5 border border-gray-200 rounded-xl 
+          focus:ring-2 focus:ring-blue-500 focus:border-blue-500 
+          transition-all bg-gray-50 focus:bg-white`}
+        />
+        {type === "password" && (
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+          >
+            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const Login = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const illustrationUrl = "/4583.jpg";
+
+  // Load saved username if "Remember Me" was checked
+  useEffect(() => {
+    const savedUser = localStorage.getItem("username");
+    if (savedUser) {
+      setUsername(savedUser);
+      setRememberMe(true);
+    }
+  }, []);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsLoading(true);
+    setError("");
+
     try {
-      const user = login(username, password);
+      const user = await login(username, password);
+
+      if (rememberMe) {
+        localStorage.setItem("username", username);
+      } else {
+        localStorage.removeItem("username");
+      }
+
       if (user.role === "admin") {
         navigate("/admin/dashboard");
-      } else {
+      } else if (user.role === "staff") {
         navigate("/staff/dashboard");
       }
     } catch (err) {
-      setError(err.message);
+      setError(err.response?.data?.message || "Invalid credentials, please try again");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="flex justify-center items-center h-screen bg-gray-100">
-      <form
-        onSubmit={handleSubmit}
-        className="bg-white p-8 rounded-lg shadow-md w-96"
-      >
-        <h2 className="text-2xl font-bold mb-4">Login</h2>
-        {error && <p className="text-red-500">{error}</p>}
-        <input
-          type="text"
-          placeholder="Username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          className="w-full mb-4 p-2 border rounded"
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full mb-4 p-2 border rounded"
-        />
-        <button
-          type="submit"
-          className="w-full bg-blue-500 text-white py-2 rounded"
-        >
-          Login
-        </button>
-        <p className="mt-4 text-sm">
-          Don’t have an account?{" "}
-          <span
-            onClick={() => navigate("/register")}
-            className="text-blue-600 cursor-pointer"
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex flex-col lg:flex-row">
+      {/* Illustration (always visible) */}
+      <div className="flex w-full lg:w-1/2 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 to-indigo-600/10"></div>
+
+        {/* Floating Background Elements */}
+        <div className="absolute top-20 left-20 w-32 h-32 bg-blue-200/30 rounded-full animate-pulse"></div>
+        <div className="absolute bottom-32 right-20 w-24 h-24 bg-indigo-200/30 rounded-full animate-bounce"></div>
+        <div className="absolute top-1/2 left-10 w-16 h-16 bg-purple-200/30 rounded-full animate-ping"></div>
+
+        <div className="flex items-center justify-center w-full p-12">
+          <div className="relative max-w-lg">
+            <img
+              src={illustrationUrl}
+              alt="Workspace Collaboration"
+              className="w-full h-auto rounded-2xl shadow-2xl transform hover:scale-105 transition-transform duration-500"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Login Form */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
+        <div className="w-full max-w-md">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full mb-4 shadow-lg">
+              <User className="w-8 h-8 text-white" />
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h1>
+            <p className="text-gray-600">Sign in to your workspace</p>
+          </div>
+
+          {/* Login Form */}
+          <form
+            onSubmit={handleSubmit}
+            className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/50"
           >
-            Register
-          </span>
-        </p>
-      </form>
+            <div className="space-y-6">
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm flex items-center">
+                  <div className="w-4 h-4 bg-red-500 rounded-full mr-3"></div>
+                  {error}
+                </div>
+              )}
+
+              {/* Username */}
+              <InputField
+                label="Username"
+                type="text"
+                icon={User}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Enter your username"
+              />
+
+              {/* Password */}
+              <InputField
+                label="Password"
+                type="password"
+                icon={Lock}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                showPassword={showPassword}
+                setShowPassword={setShowPassword}
+              />
+
+              {/* Remember Me & Forgot Password */}
+              <div className="flex items-center justify-between">
+                <label className="flex items-center space-x-3">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-600">Remember me</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => navigate("/forgot-password")}
+                  className="text-sm text-blue-600 hover:text-blue-800 font-semibold"
+                >
+                  Forgot password?
+                </button>
+              </div>
+
+              {/* Login Button */}
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3.5 rounded-xl font-semibold hover:from-blue-700 hover:to-indigo-700 focus:ring-4 focus:ring-blue-300 transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center"
+              >
+                {isLoading ? (
+                  <div className="flex items-center space-x-2">
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Signing in...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-2">
+                    <span>Sign In</span>
+                    <ArrowRight size={20} />
+                  </div>
+                )}
+              </button>
+            </div>
+
+            {/* Register Link */}
+            <div className="mt-8 text-center">
+              <p className="text-gray-600">
+                Don't have an account?{" "}
+                <button
+                  type="button"
+                  onClick={() => navigate("/register")}
+                  className="text-blue-600 hover:text-blue-800 font-semibold hover:underline"
+                >
+                  Create one here
+                </button>
+              </p>
+            </div>
+          </form>
+
+          {/* Demo Credentials */}
+          <div className="mt-6 bg-white/60 backdrop-blur-sm rounded-xl p-4 text-sm text-gray-600 border border-white/50">
+            <h4 className="font-semibold mb-2 flex items-center">
+              <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+              Demo Credentials
+            </h4>
+            <div className="space-y-1 text-xs">
+              <p>
+                <strong>Admin:</strong> admin / admin123
+              </p>
+              <p>
+                <strong>Staff:</strong> staff / staff123
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

@@ -10,12 +10,12 @@ const Dashboard = () => {
   const [viewMode, setViewMode] = useState('Summary');
 
   const courses = [
-    { id: '23CS11E', title: 'Web Framework using Python - DVK Batch - O25-26', semester: '2025 - 2026 ODD SEMESTER', progress: 50, lastAccessed: '2025-08-20', bgColor: 'bg-purple-500' },
-    { id: '23CS55C', title: 'Artificial Intelligence (DRYG Batch)', semester: '2025 - 2026 ODD SEMESTER', progress: 56, lastAccessed: '2025-08-15', bgColor: 'bg-gray-400' },
-    { id: '25-26-ODD', title: 'OBJECT ORIENTED ANALYSIS AND DESIGN', semester: '2025 - 2026 ODD SEMESTER', progress: 33, lastAccessed: '2025-08-18', bgColor: 'bg-yellow-500' },
-    { id: '23CS42', title: 'Software Engineering Principles', semester: '2025 - 2026 ODD SEMESTER', progress: 75, lastAccessed: '2025-08-10', bgColor: 'bg-blue-500' },
-    { id: '23CS61', title: 'Computer Graphics and Visualization', semester: '2025 - 2026 ODD SEMESTER', progress: 85, lastAccessed: '2025-08-22', bgColor: 'bg-green-500' },
-    { id: '23CS34', title: 'Database Management Systems', semester: '2025 - 2026 ODD SEMESTER', progress: 40, lastAccessed: '2025-08-12', bgColor: 'bg-red-500' }
+    { id: '23CS11E', title: 'Web Framework using Python - DVK Batch - O25-26', semester: '2025 - 2026 ODD SEMESTER', lastAccessed: '2025-08-20', bgColor: 'bg-purple-500' },
+    { id: '23CS55C', title: 'Artificial Intelligence (DRYG Batch)', semester: '2025 - 2026 ODD SEMESTER',  lastAccessed: '2025-08-15', bgColor: 'bg-gray-400' },
+    { id: '25-26-ODD', title: 'OBJECT ORIENTED ANALYSIS AND DESIGN', semester: '2025 - 2026 ODD SEMESTER', lastAccessed: '2025-08-18', bgColor: 'bg-yellow-500' },
+    { id: '23CS42', title: 'Software Engineering Principles', semester: '2025 - 2026 ODD SEMESTER',  lastAccessed: '2025-08-10', bgColor: 'bg-blue-500' },
+    { id: '23CS61', title: 'Computer Graphics and Visualization', semester: '2025 - 2026 ODD SEMESTER',  lastAccessed: '2025-08-22', bgColor: 'bg-green-500' },
+    { id: '23CS34', title: 'Database Management Systems', semester: '2025 - 2026 ODD SEMESTER',  lastAccessed: '2025-08-12', bgColor: 'bg-red-500' }
   ];
 
   let filteredCourses = courses.filter(course =>
@@ -26,7 +26,6 @@ const Dashboard = () => {
   filteredCourses.sort((a, b) => {
     if (sortBy === 'Sort by last accessed') return new Date(b.lastAccessed) - new Date(a.lastAccessed);
     if (sortBy === 'Sort by name') return a.title.localeCompare(b.title);
-    if (sortBy === 'Sort by progress') return b.progress - a.progress;
     return 0;
   });
 
@@ -38,7 +37,7 @@ const Dashboard = () => {
     <div className="p-6 bg-gray-100 min-h-screen">
       {/* Header */}
       <header className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
-        <h1 className="text-2xl font-bold text-gray-900">Hi, RAM PRASATH M! 👋</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Hi, KALAI! 👋</h1>
       </header>
 
       {/* Course Overview */}
@@ -80,7 +79,6 @@ const Dashboard = () => {
         >
           <option value="Sort by last accessed">Sort by last accessed</option>
           <option value="Sort by name">Sort by name</option>
-          <option value="Sort by progress">Sort by progress</option>
         </select>
 
         {/* View Mode */}
@@ -113,10 +111,6 @@ const Dashboard = () => {
                     {course.id} - {course.title}
                   </h3>
                   <p className="text-sm text-gray-600 mb-3">{course.semester}</p>
-                  <span className="text-sm text-gray-600 font-medium">{course.progress}% complete</span>
-                </div>
-                <div className="pointer-events-none">
-                  <MoreVertical className="w-5 h-5 text-gray-400" />
                 </div>
               </div>
             </div>

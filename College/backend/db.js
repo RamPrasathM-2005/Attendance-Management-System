@@ -32,6 +32,7 @@ const initDatabase = async () => {
     await admin.execute(`CREATE DATABASE IF NOT EXISTS \`${dbConfig.database}\``);
     await admin.end();
 
+    
     // 1) Batch
     await pool.execute(`
       CREATE TABLE IF NOT EXISTS Batch (

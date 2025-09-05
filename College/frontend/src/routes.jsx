@@ -13,7 +13,7 @@ import Register from "./pages/auth/Register";
 
 // Admin Pages
 import AdminDashboard from "./pages/admin/Dashboard";
-import ManageSemesters from "./pages/admin/ManageSemsters"
+import ManageSemesters from "./pages/admin/ManageSemesters/ManageSemsters";
 import ManageCourses from "./pages/admin/ManageCourses";
 import ManageStaff from "./pages/admin/ManageStaff";
 import ManageStudents from "./pages/admin/ManageStudents";

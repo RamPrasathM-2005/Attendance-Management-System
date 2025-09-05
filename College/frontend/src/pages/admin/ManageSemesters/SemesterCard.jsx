@@ -1,5 +1,5 @@
-import React from 'react';
-import { BookOpen, ChevronRight } from 'lucide-react';
+import React from "react";
+import { BookOpen, ChevronRight } from "lucide-react";
 
 const SemesterCard = ({ semester, onClick, index }) => (
   <div
@@ -13,26 +13,34 @@ const SemesterCard = ({ semester, onClick, index }) => (
           <BookOpen className="w-6 h-6 text-blue-600" />
         </div>
         <div className="text-right">
-          <div className="text-2xl font-bold text-gray-800">Sem {semester.semester}</div>
-          <div className="text-sm text-blue-600 font-medium">{semester.batch}</div>
+          <div className="text-2xl font-bold text-gray-800">
+            Sem {semester.semesterNumber}
+          </div>
+          <div className="text-sm text-blue-600 font-medium">
+            {semester.batchYears}
+          </div>
         </div>
       </div>
 
-      <h3 className="font-semibold text-gray-800 mb-2 line-clamp-2">{semester.department}</h3>
+      <h3 className="font-semibold text-gray-800 mb-2 line-clamp-2">
+        {semester.department}
+      </h3>
 
       <div className="space-y-2 mb-4">
         <div className="flex justify-between text-sm">
-          <span className="text-gray-600">Courses</span>
-          <span className="font-medium text-gray-800">{semester.totalCourses}</span>
+          <span className="text-gray-600">Start</span>
+          <span className="font-medium text-gray-800">{semester.startDate}</span>
         </div>
         <div className="flex justify-between text-sm">
-          <span className="text-gray-600">Students</span>
-          <span className="font-medium text-gray-800">{semester.totalStudents}</span>
+          <span className="text-gray-600">End</span>
+          <span className="font-medium text-gray-800">{semester.endDate}</span>
         </div>
       </div>
 
       <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-        <span className="text-xs text-gray-500">Created {semester.createdAt}</span>
+        <span className="text-xs text-gray-500">
+          Created {semester.createdDate?.split("T")[0]}
+        </span>
         <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-blue-600 transition-colors" />
       </div>
     </div>

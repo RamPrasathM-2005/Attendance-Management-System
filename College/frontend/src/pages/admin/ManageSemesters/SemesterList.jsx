@@ -1,6 +1,6 @@
-import React from 'react';
-import { Calendar } from 'lucide-react';
-import SemesterCard from './SemesterCard';
+import React from "react";
+import { Calendar } from "lucide-react";
+import SemesterCard from "./SemesterCard";
 
 const SemesterList = ({ semesters, onSemesterClick }) => (
   <div className="mb-8">
@@ -11,11 +11,18 @@ const SemesterList = ({ semesters, onSemesterClick }) => (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
       {semesters.length > 0 ? (
         semesters.map((s, index) => (
-          <SemesterCard key={s.id} semester={s} index={index} onClick={onSemesterClick} />
+          <SemesterCard
+            key={s.semesterId}
+            semester={s}
+            index={index}
+            onClick={onSemesterClick}
+          />
         ))
       ) : (
         <div className="md:col-span-full text-center py-8">
-          <p className="text-gray-500">No semesters found matching your search criteria.</p>
+          <p className="text-gray-500">
+            No semesters found matching your search criteria.
+          </p>
         </div>
       )}
     </div>

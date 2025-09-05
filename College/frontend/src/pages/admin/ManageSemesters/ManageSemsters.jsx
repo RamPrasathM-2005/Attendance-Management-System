@@ -1,48 +1,68 @@
-import React, { useState } from 'react';
-import { GraduationCap } from 'lucide-react';
-import SearchBar from './SearchBar';
-import SemesterList from './SemesterList';
-import CreateSemesterForm from './CreateSemesterForm';
-import SemesterDetails from './SemesterDetails';
+import React, { useState, useEffect } from "react";
+import { GraduationCap } from "lucide-react";
+import SearchBar from "./SearchBar";
+import SemesterList from "./SemesterList";
+import CreateSemesterForm from "./CreateSemesterForm";
+import SemesterDetails from "./SemesterDetails";
 
 const ManageSemesters = () => {
-  const [semesters, setSemesters] = useState([
-    { id: 1, batch: '2023-2027', department: 'Computer Science Engineering', semester: 3, totalCourses: 6, totalStudents: 45, createdAt: '2024-01-15' },
-    { id: 2, batch: '2024-2028', department: 'Information Technology', semester: 1, totalCourses: 5, totalStudents: 52, createdAt: '2024-08-20' },
-    { id: 3, batch: '2022-2026', department: 'Electronics & Communication', semester: 5, totalCourses: 7, totalStudents: 38, createdAt: '2023-07-10' },
-    { id: 4, batch: '2023-2027', department: 'Mechanical Engineering', semester: 2, totalCourses: 6, totalStudents: 41, createdAt: '2024-01-22' }
-  ]);
-
-
-  //For adding new Semester
+  const [semesters, setSemesters] = useState([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
-
-  //To check whether select i Clicked semester or not
   const [selectedSemester, setSelectedSemester] = useState(null);
+  const [searchQuery, setSearchQuery] = useState({
+    batch: "",
+    department: "",
+    semester: "",
+  });
 
-  //Search bar
-  const [searchQuery, setSearchQuery] = useState({ batch: '', department: '', semester: '' });
+  // Fetch from backend
+  useEffect(() => {
+    fetch("http://localhost:5000/api/semesters")
+      .then((res) => res.json())
+      .then((data) => setSemesters(data))
+      .catch((err) => console.error("Error fetching semesters:", err));
+  }, []);
 
-  const departments = [
-    'Computer Science Engineering',
-    'Information Technology',
-    'Electronics & Communication',
-    'Mechanical Engineering',
-    'Civil Engineering',
-    'Electrical Engineering'
-  ];
+  const handleCreateSemester = async (newSemester) => {
+    try {
+      const res = await fetch("http://localhost:5000/api/semesters", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newSemester),
+      });
 
-  const handleCreateSemester = (newSemester) => {
-    setSemesters([...semesters, { id: semesters.length + 1, ...newSemester }]);
-    setShowCreateForm(false);
+      if (!res.ok) throw new Error("Failed to create semester");
+
+      const savedSemester = await res.json();
+      setSemesters([...semesters, savedSemester]);
+      setShowCreateForm(false);
+    } catch (error) {
+      console.error(error);
+      alert("Error creating semester");
+    }
   };
 
-  const filteredSemesters = semesters.filter(s => {
-    const batchMatch = s.batch.toLowerCase().includes(searchQuery.batch.toLowerCase());
-    const deptMatch = s.department.toLowerCase().includes(searchQuery.department.toLowerCase());
-    const semMatch = searchQuery.semester ? s.semester === parseInt(searchQuery.semester) : true;
+  const filteredSemesters = semesters.filter((s) => {
+    const batchMatch = s.batchYears
+      ?.toLowerCase()
+      .includes(searchQuery.batch.toLowerCase());
+    const deptMatch = s.department
+      ?.toLowerCase()
+      .includes(searchQuery.department.toLowerCase());
+    const semMatch = searchQuery.semester
+      ? s.semesterNumber === parseInt(searchQuery.semester)
+      : true;
     return batchMatch && deptMatch && semMatch;
   });
+
+  const departments = [
+    "Computer Science Engineering",
+    "Information Technology",
+    "Electronics & Communication",
+    "Mechanical Engineering",
+    "Civil Engineering",
+    "Electrical Engineering",
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
@@ -53,15 +73,22 @@ const ManageSemesters = () => {
             <GraduationCap className="w-8 h-8 text-blue-600" />
             <h1 className="text-3xl font-bold text-gray-800">Manage Semesters</h1>
           </div>
-          <p className="text-gray-600">Create and manage semesters for different batches and departments</p>
+          <p className="text-gray-600">
+            Create and manage semesters for different batches and departments
+          </p>
         </div>
 
-
-        {/* Not Selecting the Semester Icon. If selected it redirects to semester with courses page other wise just showing the content only*/}
         {!selectedSemester ? (
           <>
-            <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} departments={departments} />
-            <SemesterList semesters={filteredSemesters} onSemesterClick={setSelectedSemester} />
+            <SearchBar
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              departments={departments}
+            />
+            <SemesterList
+              semesters={filteredSemesters}
+              onSemesterClick={setSelectedSemester}
+            />
             <CreateSemesterForm
               showCreateForm={showCreateForm}
               setShowCreateForm={setShowCreateForm}
@@ -70,7 +97,10 @@ const ManageSemesters = () => {
             />
           </>
         ) : (
-          <SemesterDetails semester={selectedSemester} onBack={() => setSelectedSemester(null)} />
+          <SemesterDetails
+            semester={selectedSemester}
+            onBack={() => setSelectedSemester(null)}
+          />
         )}
       </div>
     </div>

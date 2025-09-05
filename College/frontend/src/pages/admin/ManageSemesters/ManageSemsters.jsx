@@ -13,8 +13,14 @@ const ManageSemesters = () => {
     { id: 4, batch: '2023-2027', department: 'Mechanical Engineering', semester: 2, totalCourses: 6, totalStudents: 41, createdAt: '2024-01-22' }
   ]);
 
+
+  //For adding new Semester
   const [showCreateForm, setShowCreateForm] = useState(false);
+
+  //To check whether select i Clicked semester or not
   const [selectedSemester, setSelectedSemester] = useState(null);
+
+  //Search bar
   const [searchQuery, setSearchQuery] = useState({ batch: '', department: '', semester: '' });
 
   const departments = [
@@ -50,6 +56,8 @@ const ManageSemesters = () => {
           <p className="text-gray-600">Create and manage semesters for different batches and departments</p>
         </div>
 
+
+        {/* Not Selecting the Semester Icon. If selected it redirects to semester with courses page other wise just showing the content only*/}
         {!selectedSemester ? (
           <>
             <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} departments={departments} />

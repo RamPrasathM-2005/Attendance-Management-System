@@ -4,7 +4,6 @@ import dotenv from 'dotenv';
 
 dotenv.config({ path: './config.env' });
 
-// --- DB config ---
 const dbConfig = {
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
@@ -12,7 +11,6 @@ const dbConfig = {
   database: process.env.DB_NAME
 };
 
-// Create a pool up-front
 const pool = mysql.createPool({
   ...dbConfig,
   waitForConnections: true,
@@ -23,40 +21,38 @@ const pool = mysql.createPool({
 
 const initDatabase = async () => {
   try {
-    // 0) Ensure the database exists
+    // 0) Ensure DB exists
     const admin = await mysql.createConnection({
       host: dbConfig.host,
       user: dbConfig.user,
       password: dbConfig.password
     });
-
     await admin.execute(`CREATE DATABASE IF NOT EXISTS \`${dbConfig.database}\``);
     await admin.end();
 
-    // 1) Batch (degree + branch + year range)
+    // 1) Batch
     await pool.execute(`
       CREATE TABLE IF NOT EXISTS Batch (
         batchId INT PRIMARY KEY AUTO_INCREMENT,
-        degree VARCHAR(50) NOT NULL,             -- B.E, B.Tech, etc.
-        branch VARCHAR(100) NOT NULL,            -- CSE, ECE, IT, etc.
-        batch VARCHAR(4) NOT NULL,               -- e.g. "2023"
-        batchYears VARCHAR(20) NOT NULL,         -- e.g. "2023-2027"
+        degree VARCHAR(50) NOT NULL,
+        branch VARCHAR(100) NOT NULL,
+        batch VARCHAR(4) NOT NULL,
+        batchYears VARCHAR(20) NOT NULL,
         isActive ENUM('YES','NO') DEFAULT 'YES',
         createdBy VARCHAR(150),
         updatedBy VARCHAR(150),
         createdDate DATETIME DEFAULT CURRENT_TIMESTAMP,
         updatedDate DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        UNIQUE KEY uq_batch (degree, branch, batch),
-        KEY idx_batch (batch)
+        UNIQUE KEY uq_batch (degree, branch, batch)
       )
     `);
 
-    // 2) Section (Batch A, B, etc.)
+    // 2) Section
     await pool.execute(`
       CREATE TABLE IF NOT EXISTS Section (
         sectionId INT PRIMARY KEY AUTO_INCREMENT,
         batchId INT NOT NULL,
-        sectionName VARCHAR(10) NOT NULL,       -- e.g. A, B, C
+        sectionName VARCHAR(10) NOT NULL,
         isActive ENUM('YES','NO') DEFAULT 'YES',
         createdBy VARCHAR(150),
         updatedBy VARCHAR(150),
@@ -68,7 +64,7 @@ const initDatabase = async () => {
       )
     `);
 
-    // 3) Users
+    // 3) Users (Admin / Staff)
     await pool.execute(`
       CREATE TABLE IF NOT EXISTS Users (
         userId INT PRIMARY KEY AUTO_INCREMENT,
@@ -103,25 +99,33 @@ const initDatabase = async () => {
       )
     `);
 
-    // 5) Course
+
+    // Course Table
     await pool.execute(`
       CREATE TABLE IF NOT EXISTS Course (
-        courseCode VARCHAR(50) PRIMARY KEY,
+        courseId INT PRIMARY KEY AUTO_INCREMENT,
+        courseCode VARCHAR(20) NOT NULL UNIQUE,
         semesterId INT NOT NULL,
-        courseName VARCHAR(100) NOT NULL,
-        courseType ENUM('INTEGRAL','PRACTICAL','THEORY') NOT NULL,
-        courseCategory ENUM('OEC','PEC','CORE') NOT NULL,
-        minMark INT NOT NULL,
-        maxMark INT NOT NULL,
+        courseTitle VARCHAR(255) NOT NULL,
+        category ENUM('HSMC','BSC','ESC','PEC','OEC','EEC') NOT NULL,
+        type ENUM('THEORY','INTEGRATED','PRACTICAL') NOT NULL,
+        lectureHours INT DEFAULT 0,
+        tutorialHours INT DEFAULT 0,
+        practicalHours INT DEFAULT 0,
+        experientialHours INT DEFAULT 0,
+        totalContactPeriods INT NOT NULL,
+        credits INT NOT NULL,
         isActive ENUM('YES','NO') DEFAULT 'YES',
-        createdBy VARCHAR(150),
-        updatedBy VARCHAR(150),
-        createdDate DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedDate DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        createdBy VARCHAR(100),
+        updatedBy VARCHAR(100),
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         CONSTRAINT fk_course_sem FOREIGN KEY (semesterId) REFERENCES Semester(semesterId)
           ON UPDATE CASCADE ON DELETE RESTRICT
       )
     `);
+
+
 
     // 6) Student
     await pool.execute(`
@@ -132,107 +136,70 @@ const initDatabase = async () => {
         sectionId INT NOT NULL,
         semesterNumber INT NOT NULL CHECK (semesterNumber BETWEEN 1 AND 8),
         isActive ENUM('YES','NO') DEFAULT 'YES',
-        createdBy VARCHAR(150),
-        updatedBy VARCHAR(150),
         createdDate DATETIME DEFAULT CURRENT_TIMESTAMP,
         updatedDate DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        CONSTRAINT fk_student_batch FOREIGN KEY (batchId) REFERENCES Batch(batchId)
-          ON UPDATE CASCADE ON DELETE RESTRICT,
+        CONSTRAINT fk_student_batch FOREIGN KEY (batchId) REFERENCES Batch(batchId),
         CONSTRAINT fk_student_section FOREIGN KEY (sectionId) REFERENCES Section(sectionId)
-          ON UPDATE CASCADE ON DELETE RESTRICT
       )
     `);
 
-    // 7) StudentCourse (enrollments)
+    // 7) Enrollments
     await pool.execute(`
       CREATE TABLE IF NOT EXISTS StudentCourse (
         studentCourseId INT PRIMARY KEY AUTO_INCREMENT,
         rollnumber VARCHAR(20) NOT NULL,
         courseCode VARCHAR(50) NOT NULL,
-        isActive ENUM('YES','NO') DEFAULT 'YES',
-        createdBy VARCHAR(150),
-        updatedBy VARCHAR(150),
-        createdDate DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedDate DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        CONSTRAINT fk_sc_stu FOREIGN KEY (rollnumber) REFERENCES Student(rollnumber)
-          ON UPDATE CASCADE ON DELETE RESTRICT,
+        UNIQUE (rollnumber, courseCode),
+        CONSTRAINT fk_sc_student FOREIGN KEY (rollnumber) REFERENCES Student(rollnumber),
         CONSTRAINT fk_sc_course FOREIGN KEY (courseCode) REFERENCES Course(courseCode)
-          ON UPDATE CASCADE ON DELETE RESTRICT,
-        UNIQUE (rollnumber, courseCode)
       )
     `);
 
-    // 8) StaffCourse
+    // 8) Staff-Course
     await pool.execute(`
       CREATE TABLE IF NOT EXISTS StaffCourse (
         staffCourseId INT PRIMARY KEY AUTO_INCREMENT,
         staffId INT NOT NULL,
         courseCode VARCHAR(50) NOT NULL,
-        isActive ENUM('YES','NO') DEFAULT 'YES',
-        createdBy VARCHAR(150),
-        updatedBy VARCHAR(150),
-        createdDate DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedDate DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        CONSTRAINT fk_staffcourse_user FOREIGN KEY (staffId) REFERENCES Users(userId)
-          ON UPDATE CASCADE ON DELETE RESTRICT,
-        CONSTRAINT fk_staffcourse_course FOREIGN KEY (courseCode) REFERENCES Course(courseCode)
-          ON UPDATE CASCADE ON DELETE RESTRICT,
-        UNIQUE (staffId, courseCode)
+        UNIQUE (staffId, courseCode),
+        CONSTRAINT fk_stc_staff FOREIGN KEY (staffId) REFERENCES Users(userId),
+        CONSTRAINT fk_stc_course FOREIGN KEY (courseCode) REFERENCES Course(courseCode)
       )
     `);
 
-    // 9) CourseOutcome
+    // 9) Course Outcomes
     await pool.execute(`
       CREATE TABLE IF NOT EXISTS CourseOutcome (
         coId INT PRIMARY KEY AUTO_INCREMENT,
         courseCode VARCHAR(50) NOT NULL,
         coNumber VARCHAR(10) NOT NULL,
         weightage INT NOT NULL,
-        isActive ENUM('YES','NO') DEFAULT 'YES',
-        createdBy VARCHAR(150),
-        updatedBy VARCHAR(150),
-        createdDate DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedDate DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE (courseCode, coNumber),
         CONSTRAINT fk_co_course FOREIGN KEY (courseCode) REFERENCES Course(courseCode)
-          ON UPDATE CASCADE ON DELETE RESTRICT,
-        UNIQUE (courseCode, coNumber)
       )
     `);
 
-    // 10) COTool
+    // 10) CO Tools
     await pool.execute(`
       CREATE TABLE IF NOT EXISTS COTool (
         toolId INT PRIMARY KEY AUTO_INCREMENT,
         coId INT NOT NULL,
-        toolName VARCHAR(50) NOT NULL,
+        toolName VARCHAR(100) NOT NULL,
         weightage INT NOT NULL,
-        isActive ENUM('YES','NO') DEFAULT 'YES',
-        createdBy VARCHAR(150),
-        updatedBy VARCHAR(150),
-        createdDate DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedDate DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         CONSTRAINT fk_tool_co FOREIGN KEY (coId) REFERENCES CourseOutcome(coId)
-          ON UPDATE CASCADE ON DELETE RESTRICT
       )
     `);
 
-    // 11) StudentCOTool
+    // 11) Student marks per tool
     await pool.execute(`
       CREATE TABLE IF NOT EXISTS StudentCOTool (
         studentToolId INT PRIMARY KEY AUTO_INCREMENT,
         rollnumber VARCHAR(20) NOT NULL,
         toolId INT NOT NULL,
         marksObtained INT NOT NULL,
-        isActive ENUM('YES','NO') DEFAULT 'YES',
-        createdBy VARCHAR(150),
-        updatedBy VARCHAR(150),
-        createdDate DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedDate DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        CONSTRAINT fk_sct_stu FOREIGN KEY (rollnumber) REFERENCES Student(rollnumber)
-          ON UPDATE CASCADE ON DELETE RESTRICT,
+        UNIQUE (rollnumber, toolId),
+        CONSTRAINT fk_sct_student FOREIGN KEY (rollnumber) REFERENCES Student(rollnumber),
         CONSTRAINT fk_sct_tool FOREIGN KEY (toolId) REFERENCES COTool(toolId)
-          ON UPDATE CASCADE ON DELETE RESTRICT,
-        UNIQUE (rollnumber, toolId)
       )
     `);
 
@@ -244,69 +211,49 @@ const initDatabase = async () => {
         courseCode VARCHAR(50) NOT NULL,
         dayOfWeek ENUM('MON','TUE','WED','THU','FRI','SAT') NOT NULL,
         periodNumber INT NOT NULL CHECK (periodNumber BETWEEN 1 AND 8),
-        isActive ENUM('YES','NO') DEFAULT 'YES',
-        createdBy VARCHAR(150),
-        updatedBy VARCHAR(150),
-        createdDate DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedDate DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        CONSTRAINT fk_tt_user FOREIGN KEY (staffId) REFERENCES Users(userId)
-          ON UPDATE CASCADE ON DELETE RESTRICT,
+        UNIQUE (staffId, courseCode, dayOfWeek, periodNumber),
+        CONSTRAINT fk_tt_staff FOREIGN KEY (staffId) REFERENCES Users(userId),
         CONSTRAINT fk_tt_course FOREIGN KEY (courseCode) REFERENCES Course(courseCode)
-          ON UPDATE CASCADE ON DELETE RESTRICT,
-        UNIQUE (staffId, courseCode, dayOfWeek, periodNumber)
       )
     `);
 
-    // 13) DayAttendance
+    // 13) Attendance - Day
     await pool.execute(`
       CREATE TABLE IF NOT EXISTS DayAttendance (
         dayAttendanceId INT PRIMARY KEY AUTO_INCREMENT,
         rollnumber VARCHAR(20) NOT NULL,
-        semesterNumber INT NOT NULL CHECK (semesterNumber BETWEEN 1 AND 8),
+        semesterNumber INT NOT NULL,
         attendanceDate DATE NOT NULL,
         status ENUM('P','A') NOT NULL,
-        createdBy VARCHAR(150),
-        updatedBy VARCHAR(150),
-        createdDate DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedDate DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE (rollnumber, attendanceDate),
         CONSTRAINT fk_da_student FOREIGN KEY (rollnumber) REFERENCES Student(rollnumber)
-          ON UPDATE CASCADE ON DELETE RESTRICT,
-        UNIQUE (rollnumber, attendanceDate)
       )
     `);
 
-    // 14) PeriodAttendance
+    // 14) Attendance - Period
     await pool.execute(`
       CREATE TABLE IF NOT EXISTS PeriodAttendance (
         periodAttendanceId INT PRIMARY KEY AUTO_INCREMENT,
         rollnumber VARCHAR(20) NOT NULL,
         staffId INT NOT NULL,
         courseCode VARCHAR(50) NOT NULL,
-        semesterNumber INT NOT NULL CHECK (semesterNumber BETWEEN 1 AND 8),
+        semesterNumber INT NOT NULL,
         dayOfWeek ENUM('MON','TUE','WED','THU','FRI','SAT') NOT NULL,
-        periodNumber INT NOT NULL CHECK (periodNumber BETWEEN 1 AND 8),
+        periodNumber INT NOT NULL,
         attendanceDate DATE NOT NULL,
         status ENUM('P','A') NOT NULL,
-        createdBy VARCHAR(150),
-        updatedBy VARCHAR(150),
-        createdDate DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedDate DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        CONSTRAINT fk_pa_student FOREIGN KEY (rollnumber) REFERENCES Student(rollnumber)
-          ON UPDATE CASCADE ON DELETE RESTRICT,
-        CONSTRAINT fk_pa_user FOREIGN KEY (staffId) REFERENCES Users(userId)
-          ON UPDATE CASCADE ON DELETE RESTRICT,
+        UNIQUE (rollnumber, courseCode, attendanceDate, periodNumber),
+        CONSTRAINT fk_pa_student FOREIGN KEY (rollnumber) REFERENCES Student(rollnumber),
+        CONSTRAINT fk_pa_staff FOREIGN KEY (staffId) REFERENCES Users(userId),
         CONSTRAINT fk_pa_course FOREIGN KEY (courseCode) REFERENCES Course(courseCode)
-          ON UPDATE CASCADE ON DELETE RESTRICT,
-        UNIQUE (rollnumber, courseCode, attendanceDate, periodNumber)
       )
     `);
 
-    console.log('✅ Database and all tables initialized successfully');
-  } catch (error) {
-    console.error('❌ Database initialization error:', error);
+    console.log("✅ Database initialized with full academic schema");
+  } catch (err) {
+    console.error("❌ DB Initialization Error:", err);
   }
 };
 
 initDatabase();
-
 export default pool;

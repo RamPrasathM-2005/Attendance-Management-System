@@ -7,46 +7,43 @@ import {
   updateSemester,
   getSemestersByBatchBranch,
 } from "../../controllers/semesterController.js";
-
 import {
   addCourse,
   getAllCourse,
   getCourseBySemester,
   updateCourse,
-  deleteCourse
+  deleteCourse,
 } from "../../controllers/subjectController.js";
+import {
+  allocateStaffToCourse,
+  allocateCourseToStaff,
+  updateStaffAllocation,
+  getStaffAllocationsByCourse,
+  getCourseAllocationsByStaff,
+  deleteStaffAllocation,
+} from "../../controllers/staffCourseController.js";
 
 const router = express.Router();
 
 /* =========================
    📌 Semester Routes
    ========================= */
-
-// Add a new semester / Get all semesters
 router
   .route("/semesters")
   .post(addSemester)
   .get(getAllSemesters);
 
-// Get a specific semester by batch, branch, degree, and semesterNumber (query params)
 router.get("/semesters/search", getSemester);
-
-// Get all semesters for a specific batch, branch, and degree (query params)
 router.get("/semesters/by-batch-branch", getSemestersByBatchBranch);
 
-// Update or delete a semester by ID
 router
   .route("/semesters/:semesterId")
-  .put(updateSemester)     // ✅ Update semester
-  .delete(deleteSemester); // ✅ Delete semester
-
+  .put(updateSemester)
+  .delete(deleteSemester);
 
 /* =========================
    📌 Course Routes
    ========================= */
-
-// Add a new course to a specific semester / Get all courses for a semester
-// Course Routes
 router
   .route("/semesters/:semesterId/courses")
   .post(addCourse)
@@ -61,6 +58,17 @@ router
   .put(updateCourse)
   .delete(deleteCourse);
 
+
+
+/* =========================
+   📌 Staff-Course Allocation Routes
+   ========================= */
+router.post("/courses/:courseId/staff", allocateStaffToCourse); // Allocate staff to a course (Courses page)
+router.post("/staff/:staffId/courses", allocateCourseToStaff); // Allocate course to a staff (Staff page)
+router.put("/staff-courses/:staffCourseId", updateStaffAllocation); // Update a staff-course allocation
+router.get("/courses/:courseId/staff", getStaffAllocationsByCourse); // Get staff allocations for a course
+router.get("/staff/:staffId/courses", getCourseAllocationsByStaff); // Get course allocations for a staff
+router.delete("/staff-courses/:staffCourseId", deleteStaffAllocation); // Delete a staff-course allocation
+
+
 export default router;
-
-

@@ -1,19 +1,42 @@
 import pool from "../db.js";
 import catchAsync from "../utils/catchAsync.js";
 
-// ✅ Add Semester
+// Utility: format YYYY-MM-DD safely
+function formatDate(dateStr) {
+  if (!dateStr) return null;
+  return dateStr.length > 10 ? dateStr.substring(0, 10) : dateStr;
+}
+
+// ✅ Add new Semester
 export const addSemester = async (req, res) => {
   try {
-    const { batch, branch, semesterNumber, startDate, endDate, createdBy } = req.body;
+    const {
+      degree,
+      batch,
+      branch,
+      semesterNumber,
+      startDate,
+      endDate,
+      createdBy,
+    } = req.body;
 
+    // Validation: required fields
     if (!batch || !branch || !semesterNumber || !startDate || !endDate || !createdBy) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    // 🔍 Get batchId from batch + branch
+    // Validate dates
+    const formattedStartDate = formatDate(startDate);
+    const formattedEndDate = formatDate(endDate);
+
+    if (formattedStartDate >= formattedEndDate) {
+      return res.status(400).json({ message: "startDate must be before endDate" });
+    }
+
+    // 🔍 Get batchId
     const [batchRows] = await pool.execute(
-      `SELECT batchId FROM Batch WHERE batch = ? AND branch = ?`,
-      [batch, branch]
+      `SELECT batchId FROM Batch WHERE batch = ? AND branch = ? AND degree = ?`,
+      [batch, branch, degree]
     );
 
     if (batchRows.length === 0) {
@@ -32,13 +55,12 @@ export const addSemester = async (req, res) => {
       return res.status(400).json({ message: "Semester already exists for this batch" });
     }
 
-    // Ensure sequential semester creation
+    // Ensure sequential order
     if (semesterNumber > 1) {
       const [previous] = await pool.execute(
         `SELECT semesterNumber FROM Semester WHERE batchId = ? ORDER BY semesterNumber`,
         [batchId]
       );
-
       if (previous.length !== semesterNumber - 1) {
         return res.status(400).json({
           message: `You must first create semesters 1 to ${semesterNumber - 1} for this batch`,
@@ -46,10 +68,7 @@ export const addSemester = async (req, res) => {
       }
     }
 
-    // Format dates
-    const formattedStartDate = new Date(startDate).toISOString().split("T")[0];
-    const formattedEndDate = new Date(endDate).toISOString().split("T")[0];
-
+    // Insert semester
     const [rows] = await pool.execute(
       `INSERT INTO Semester (batchId, semesterNumber, startDate, endDate, createdBy, updatedBy)
        VALUES (?, ?, ?, ?, ?, ?)`,
@@ -67,14 +86,14 @@ export const addSemester = async (req, res) => {
   }
 };
 
-// ✅ Get Semester (by batch + branch + semesterNumber)
+// ✅ Get a single Semester
 export const getSemester = async (req, res) => {
   try {
-    const { batch, branch, semesterNumber } = req.query;
+    const { batch, branch, degree, semesterNumber } = req.query;
 
-    if (!batch || !branch || !semesterNumber) {
+    if (!batch || !branch || !degree || !semesterNumber) {
       return res.status(400).json({
-        message: "batch, branch, and semesterNumber are required",
+        message: "batch, branch, degree, and semesterNumber are required",
       });
     }
 
@@ -82,8 +101,8 @@ export const getSemester = async (req, res) => {
       `SELECT s.*, b.degree, b.branch, b.batch, b.batchYears
        FROM Semester s
        INNER JOIN Batch b ON s.batchId = b.batchId
-       WHERE b.batch = ? AND b.branch = ? AND s.semesterNumber = ?`,
-      [batch, branch, semesterNumber]
+       WHERE b.batch = ? AND b.branch = ? AND b.degree = ? AND s.semesterNumber = ?`,
+      [batch, branch, degree, semesterNumber]
     );
 
     if (rows.length === 0) {
@@ -92,42 +111,39 @@ export const getSemester = async (req, res) => {
       });
     }
 
-    res.status(200).json({
-      status: "success",
-      data: rows[0],
-    });
+    res.status(200).json({ status: "success", data: rows[0] });
   } catch (error) {
     console.error("Error fetching semester:", error);
     res.status(500).json({ message: "Database error", error: error.message });
   }
 };
 
-// ✅ Get All Semesters
+// ✅ Get all Semesters
 export const getAllSemesters = catchAsync(async (req, res) => {
   const [rows] = await pool.execute(
     `SELECT s.*, b.degree, b.branch, b.batch, b.batchYears
      FROM Semester s
      INNER JOIN Batch b ON s.batchId = b.batchId`
   );
-  return res.status(200).json({ message: "success", data: rows });
+  return res.status(200).json({ status: "success", data: rows });
 });
 
-// ✅ Get Semesters by batch + branch
+// ✅ Get Semesters by Batch+Branch
 export const getSemestersByBatchBranch = async (req, res) => {
   try {
-    const { batch, branch } = req.query;
+    const { batch, branch, degree } = req.query;
 
-    if (!batch || !branch) {
-      return res.status(400).json({ message: "batch and branch are required" });
+    if (!batch || !branch || !degree) {
+      return res.status(400).json({ message: "batch, branch, and degree are required" });
     }
 
     const [rows] = await pool.execute(
       `SELECT s.*, b.degree, b.branch, b.batch, b.batchYears
        FROM Semester s
        INNER JOIN Batch b ON s.batchId = b.batchId
-       WHERE b.batch = ? AND b.branch = ?
+       WHERE b.batch = ? AND b.branch = ? AND b.degree = ?
        ORDER BY s.semesterNumber ASC`,
-      [batch, branch]
+      [batch, branch, degree]
     );
 
     if (rows.length === 0) {
@@ -144,7 +160,16 @@ export const getSemestersByBatchBranch = async (req, res) => {
 // ✅ Update Semester
 export const updateSemester = catchAsync(async (req, res) => {
   const { semesterId } = req.params;
-  const { batch, branch, semesterNumber, startDate, endDate, isActive, updatedBy } = req.body;
+  const {
+    batch,
+    branch,
+    degree,
+    semesterNumber,
+    startDate,
+    endDate,
+    isActive,
+    updatedBy,
+  } = req.body;
 
   if (!semesterId) {
     return res.status(400).json({ status: "failure", message: "semesterId is required" });
@@ -155,10 +180,18 @@ export const updateSemester = catchAsync(async (req, res) => {
     return res.status(400).json({ status: "failure", message: "Invalid semesterId provided." });
   }
 
+  // Validate dates
+  const formattedStartDate = formatDate(startDate);
+  const formattedEndDate = formatDate(endDate);
+
+  if (formattedStartDate && formattedEndDate && formattedStartDate >= formattedEndDate) {
+    return res.status(400).json({ message: "startDate must be before endDate" });
+  }
+
   // Resolve batchId
   const [batchRows] = await pool.execute(
-    `SELECT batchId FROM Batch WHERE batch = ? AND branch = ?`,
-    [batch, branch]
+    `SELECT batchId FROM Batch WHERE batch = ? AND branch = ? AND degree = ?`,
+    [batch, branch, degree]
   );
 
   if (batchRows.length === 0) {
@@ -171,14 +204,17 @@ export const updateSemester = catchAsync(async (req, res) => {
     `UPDATE Semester
      SET batchId = ?, semesterNumber = ?, startDate = ?, endDate = ?, isActive = ?, updatedBy = ?, updatedDate = NOW()
      WHERE semesterId = ?`,
-    [batchId, semesterNumber, startDate, endDate, isActive, updatedBy, id]
+    [batchId, semesterNumber, formattedStartDate, formattedEndDate, isActive, updatedBy, id]
   );
 
   if (result.affectedRows === 0) {
     return res.status(404).json({ status: "failure", message: "Semester not found" });
   }
 
-  res.status(200).json({ status: "success", data: result, message: "Semester updated successfully" });
+  res.status(200).json({
+    status: "success",
+    message: "Semester updated successfully",
+  });
 });
 
 // ✅ Delete Semester
@@ -200,5 +236,8 @@ export const deleteSemester = catchAsync(async (req, res) => {
     return res.status(404).json({ status: "failure", message: "Semester not found" });
   }
 
-  res.status(200).json({ status: "success", message: `Semester with id ${id} deleted successfully` });
+  res.status(200).json({
+    status: "success",
+    message: `Semester with id ${id} deleted successfully`,
+  });
 });

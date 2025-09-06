@@ -12,6 +12,8 @@ import {
   addCourse,
   getAllCourse,
   getCourseBySemester,
+  updateCourse,
+  deleteCourse
 } from "../../controllers/subjectController.js";
 
 const router = express.Router();
@@ -39,19 +41,26 @@ router
   .delete(deleteSemester); // ✅ Delete semester
 
 
-
-
 /* =========================
    📌 Course Routes
    ========================= */
 
 // Add a new course to a specific semester / Get all courses for a semester
+// Course Routes
 router
   .route("/semesters/:semesterId/courses")
   .post(addCourse)
   .get(getCourseBySemester);
 
-// Get all courses
-router.get("/courses", getAllCourse);
+router
+  .route("/courses")
+  .get(getAllCourse);
+
+router
+  .route("/courses/:courseId")
+  .put(updateCourse)
+  .delete(deleteCourse);
 
 export default router;
+
+

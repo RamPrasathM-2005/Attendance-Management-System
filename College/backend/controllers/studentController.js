@@ -1,248 +1,179 @@
 import pool from "../db.js";
 import catchAsync from "../utils/catchAsync.js";
 
-export const searchStudents = catchAsync(async (req, res) => {
-  const { degree, branch, batch } = req.query;
+// ✅ Add new Student
+export const addStudent = catchAsync(async (req, res) => {
+  const {
+    rollnumber,
+    name,
+    degree,
+    branch,
+    batch,
+    semesterNumber,
+    createdBy,
+  } = req.body;
 
-  if (!degree || !branch || !batch) {
-    return res.status(400).json({
-      status: "failure",
-      message: "degree, branch, and batch are required",
-    });
+  // 1. Validate required fields
+  if (!rollnumber || !name || !degree || !branch || !batch || !semesterNumber || !createdBy) {
+    return res.status(400).json({ message: "All fields are required" });
   }
 
-  const [rows] = await pool.execute(
-    `SELECT s.rollnumber, s.name, s.batchId, s.semesterNumber, s.isActive
-     FROM Student s
-     JOIN Batch b ON s.batchId = b.batchId
-     WHERE b.degree = ? AND b.branch = ? AND b.batch = ? AND s.isActive = 'YES'`,
+  // 2. Check for existing student
+  const [existingStudent] = await pool.execute(
+    `SELECT rollnumber FROM Student WHERE rollnumber = ?`,
+    [rollnumber]
+  );
+  if (existingStudent.length > 0) {
+    return res.status(400).json({ message: "Student with this roll number already exists" });
+  }
+
+  // 3. Find the batchId based on degree, branch, and batch
+  const [batchRows] = await pool.execute(
+    `SELECT batchId FROM Batch WHERE degree = ? AND branch = ? AND batch = ?`,
     [degree, branch, batch]
   );
-
-  res.status(200).json({
-    status: "success",
-    data: rows,
-  });
-});
-
-export const getAvailableCourses = catchAsync(async (req, res) => {
-  const { semesterNumber } = req.params;
-
-  if (!semesterNumber || isNaN(semesterNumber) || semesterNumber < 1 || semesterNumber > 8) {
-    return res.status(400).json({
-      status: "failure",
-      message: "Valid semesterNumber (1-8) is required",
-    });
+  if (batchRows.length === 0) {
+    return res.status(404).json({ message: `Batch ${batch} - ${branch} not found` });
   }
+  const batchId = batchRows[0].batchId;
 
-  const [rows] = await pool.execute(
-    `SELECT c.courseId, c.courseCode, c.courseTitle, c.semesterId, s.sectionId, s.sectionName
-     FROM Course c
-     JOIN Semester sem ON c.semesterId = sem.semesterId
-     JOIN Section s ON c.courseCode = s.courseCode
-     WHERE sem.semesterNumber = ? AND c.isActive = 'YES' AND s.isActive = 'YES'`,
-    [semesterNumber]
+  // 4. Insert the new student into the database
+  const [result] = await pool.execute(
+    `INSERT INTO Student (rollnumber, name, batchId, semesterNumber, createdBy, updatedBy)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [rollnumber, name, batchId, semesterNumber, createdBy, createdBy]
   );
 
-  res.status(200).json({
+  res.status(201).json({
     status: "success",
-    data: rows,
+    message: "Student added successfully",
+    rollnumber: rollnumber,
   });
 });
 
-export const enrollStudentInCourse = catchAsync(async (req, res) => {
-  const { rollnumber, courseCode, sectionName, staffId } = req.body;
+// ✅ Get all Students
+export const getAllStudents = catchAsync(async (req, res) => {
+  const [rows] = await pool.execute(
+    `SELECT
+       s.*,
+       b.degree,
+       b.branch,
+       b.batch,
+       b.batchYears
+     FROM Student s
+     INNER JOIN Batch b ON s.batchId = b.batchId
+     ORDER BY s.rollnumber ASC`
+  );
 
-  if (!rollnumber || !courseCode || !sectionName) {
-    return res.status(400).json({
-      status: "failure",
-      message: "rollnumber, courseCode, and sectionName are required",
-    });
-  }
-
-  const connection = await pool.getConnection();
-  try {
-    await connection.beginTransaction();
-
-    // Validate student
-    const [studentRows] = await connection.execute(
-      `SELECT batchId, semesterNumber FROM Student WHERE rollnumber = ? AND isActive = 'YES'`,
-      [rollnumber]
-    );
-    if (studentRows.length === 0) {
-      return res.status(404).json({
-        status: "failure",
-        message: `No active student found with rollnumber ${rollnumber}`,
-      });
-    }
-    const { batchId, semesterNumber } = studentRows[0];
-
-    // Validate course and semester
-    const [courseRows] = await connection.execute(
-      `SELECT courseId FROM Course c
-       JOIN Semester s ON c.semesterId = s.semesterId
-       WHERE c.courseCode = ? AND s.batchId = ? AND s.semesterNumber = ? AND c.isActive = 'YES'`,
-      [courseCode, batchId, semesterNumber]
-    );
-    if (courseRows.length === 0) {
-      return res.status(404).json({
-        status: "failure",
-        message: `No active course ${courseCode} found for semester ${semesterNumber}`,
-      });
-    }
-
-    // Get sectionId
-    const [sectionRows] = await connection.execute(
-      `SELECT sectionId FROM Section WHERE courseCode = ? AND sectionName = ? AND isActive = 'YES'`,
-      [courseCode, sectionName]
-    );
-    if (sectionRows.length === 0) {
-      return res.status(404).json({
-        status: "failure",
-        message: `No active section ${sectionName} found for course ${courseCode}`,
-      });
-    }
-    const { sectionId } = sectionRows[0];
-
-    // Check for existing enrollment
-    const [existingEnrollment] = await connection.execute(
-      `SELECT studentCourseId, sectionId FROM StudentCourse WHERE rollnumber = ? AND courseCode = ?`,
-      [rollnumber, courseCode]
-    );
-
-    if (existingEnrollment.length > 0) {
-      // Edit existing enrollment (update section if different)
-      const existingSectionId = existingEnrollment[0].sectionId;
-      if (existingSectionId !== sectionId) {
-        await connection.execute(
-          `UPDATE StudentCourse SET sectionId = ?, updatedBy = ?, updatedDate = CURRENT_TIMESTAMP WHERE studentCourseId = ?`,
-          [sectionId, req.user?.email || 'admin', existingEnrollment[0].studentCourseId]
-        );
-        // Update StaffCourse if staffId is provided
-        if (staffId) {
-          const [staffCourse] = await connection.execute(
-            `SELECT staffCourseId FROM StaffCourse WHERE courseCode = ? AND sectionId = ? AND staffId = ?`,
-            [courseCode, sectionId, staffId]
-          );
-          if (staffCourse.length === 0 && existingSectionId !== sectionId) {
-            await connection.execute(
-              `INSERT INTO StaffCourse (staffId, courseCode, sectionId, departmentId)
-               VALUES (?, ?, ?, (SELECT departmentId FROM Users WHERE staffId = ?))`,
-              [staffId, courseCode, sectionId, staffId]
-            );
-          }
-        }
-        await connection.commit();
-        return res.status(200).json({
-          status: "success",
-          message: `Student ${rollnumber} section updated to ${sectionName} for course ${courseCode}`,
-        });
-      }
-      return res.status(400).json({
-        status: "failure",
-        message: `Student ${rollnumber} is already enrolled in course ${courseCode} with section ${sectionName}`,
-      });
-    }
-
-    // New enrollment
-    const [result] = await connection.execute(
-      `INSERT INTO StudentCourse (rollnumber, courseCode, sectionId, createdBy, updatedBy)
-       VALUES (?, ?, ?, ?, ?)`,
-      [rollnumber, courseCode, sectionId, req.user?.email || 'admin', req.user?.email || 'admin']
-    );
-
-    // Allocate staff if provided
-    if (staffId) {
-      const [staffCourse] = await connection.execute(
-        `SELECT staffCourseId FROM StaffCourse WHERE courseCode = ? AND sectionId = ? AND staffId = ?`,
-        [courseCode, sectionId, staffId]
-      );
-      if (staffCourse.length === 0) {
-        await connection.execute(
-          `INSERT INTO StaffCourse (staffId, courseCode, sectionId, departmentId)
-           VALUES (?, ?, ?, (SELECT departmentId FROM Users WHERE staffId = ?))`,
-          [staffId, courseCode, sectionId, staffId]
-        );
-      }
-    }
-
-    await connection.commit();
-    res.status(201).json({
-      status: "success",
-      message: "Student enrolled in course successfully",
-      studentCourseId: result.insertId,
-    });
-  } catch (err) {
-    await connection.rollback();
-    throw err;
-  } finally {
-    connection.release();
-  }
+  res.status(200).json({ status: "success", data: rows });
 });
 
-export const updateStudentBatch = catchAsync(async (req, res) => {
+// ✅ Get a single Student by Roll Number
+export const getStudentByRollNumber = catchAsync(async (req, res) => {
   const { rollnumber } = req.params;
-  const { batchId, semesterNumber } = req.body;
 
-  if (!batchId || !semesterNumber || isNaN(semesterNumber) || semesterNumber < 1 || semesterNumber > 8) {
-    return res.status(400).json({
-      status: "failure",
-      message: "batchId and valid semesterNumber (1-8) are required",
-    });
+  const [rows] = await pool.execute(
+    `SELECT
+       s.*,
+       b.degree,
+       b.branch,
+       b.batch,
+       b.batchYears
+     FROM Student s
+     INNER JOIN Batch b ON s.batchId = b.batchId
+     WHERE s.rollnumber = ?`,
+    [rollnumber]
+  );
+
+  if (rows.length === 0) {
+    return res.status(404).json({ message: "Student not found" });
   }
 
-  const connection = await pool.getConnection();
-  try {
-    await connection.beginTransaction();
+  res.status(200).json({ status: "success", data: rows[0] });
+});
 
-    // Validate student
-    const [studentRows] = await connection.execute(
-      `SELECT rollnumber FROM Student WHERE rollnumber = ? AND isActive = 'YES'`,
-      [rollnumber]
-    );
-    if (studentRows.length === 0) {
-      return res.status(404).json({
-        status: "failure",
-        message: `No active student found with rollnumber ${rollnumber}`,
-      });
-    }
+// ✅ Update a Student
+export const updateStudent = catchAsync(async (req, res) => {
+  const { rollnumber } = req.params;
+  const {
+    name,
+    degree,
+    branch,
+    batch,
+    semesterNumber,
+    updatedBy,
+  } = req.body;
 
-    // Validate batch
-    const [batchRows] = await connection.execute(
-      `SELECT batchId FROM Batch WHERE batchId = ? AND isActive = 'YES'`,
-      [batchId]
+  // 1. Get the current student record to check if it exists
+  const [existingStudent] = await pool.execute(
+    `SELECT batchId FROM Student WHERE rollnumber = ?`,
+    [rollnumber]
+  );
+
+  if (existingStudent.length === 0) {
+    return res.status(404).json({ message: "Student not found" });
+  }
+
+  let batchId = existingStudent[0].batchId;
+  
+  // 2. If batch, branch, or degree are provided, resolve the new batchId
+  if (batch || branch || degree) {
+    const [batchRows] = await pool.execute(
+      `SELECT batchId FROM Batch WHERE degree = ? AND branch = ? AND batch = ?`,
+      [degree, branch, batch]
     );
+
     if (batchRows.length === 0) {
-      return res.status(404).json({
-        status: "failure",
-        message: `No active batch found with batchId ${batchId}`,
-      });
+      return res.status(404).json({ message: `Batch ${batch} - ${branch} not found` });
     }
-
-    // Update student batch and semester
-    const [result] = await connection.execute(
-      `UPDATE Student
-       SET batchId = ?, semesterNumber = ?, updatedDate = CURRENT_TIMESTAMP
-       WHERE rollnumber = ?`,
-      [batchId, semesterNumber, rollnumber]
-    );
-
-    if (result.affectedRows === 0) {
-      return res.status(400).json({
-        status: "failure",
-        message: "No changes made to the student batch",
-      });
-    }
-
-    await connection.commit();
-    res.status(200).json({
-      status: "success",
-      message: "Student batch updated successfully",
-    });
-  } catch (err) {
-    await connection.rollback();
-    throw err;
-  } finally {
-    connection.release();
+    batchId = batchRows[0].batchId;
   }
+
+  // 3. Construct the update query dynamically
+  const updateFields = {};
+  if (name !== undefined) updateFields.name = name;
+  if (semesterNumber !== undefined) updateFields.semesterNumber = semesterNumber;
+  if (batchId !== undefined) updateFields.batchId = batchId;
+  if (updatedBy !== undefined) updateFields.updatedBy = updatedBy;
+
+  if (Object.keys(updateFields).length === 0) {
+    return res.status(400).json({ message: "No valid fields to update" });
+  }
+
+  const keys = Object.keys(updateFields).map(key => `${key} = ?`).join(", ");
+  const values = Object.values(updateFields);
+
+  const [result] = await pool.execute(
+    `UPDATE Student SET ${keys}, updatedDate = NOW() WHERE rollnumber = ?`,
+    [...values, rollnumber]
+  );
+
+  if (result.affectedRows === 0) {
+    return res.status(404).json({ message: "Student not found or no changes made" });
+  }
+
+  res.status(200).json({
+    status: "success",
+    message: "Student updated successfully",
+    rollnumber: rollnumber
+  });
+});
+
+// ✅ Delete a Student
+export const deleteStudent = catchAsync(async (req, res) => {
+  const { rollnumber } = req.params;
+
+  const [result] = await pool.execute(
+    `DELETE FROM Student WHERE rollnumber = ?`,
+    [rollnumber]
+  );
+
+  if (result.affectedRows === 0) {
+    return res.status(404).json({ message: "Student not found" });
+  }
+
+  res.status(200).json({
+    status: "success",
+    message: `Student with roll number ${rollnumber} deleted successfully`,
+  });
 });

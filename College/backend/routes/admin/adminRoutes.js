@@ -28,12 +28,20 @@ import {
   getAvailableCourses,
   enrollStudentInCourse,
   updateStudentBatch,
-} from "../../controllers/studentController.js";
+} from "../../controllers/studentAllocationController.js";
 
 import {
   addSectionsToCourse,
   updateSectionsForCourse,
 } from "../../controllers/sectionController.js";
+
+import {
+  addStudent,
+  getAllStudents,
+  getStudentByRollNumber,
+  updateStudent,
+  deleteStudent,
+} from "../../controllers/studentController.js";
 
 const router = express.Router();
 
@@ -96,6 +104,22 @@ router.post("/courses/:courseCode/sections", addSectionsToCourse);
 
 // Update sections for a course
 router.put("/courses/:courseCode/sections", updateSectionsForCourse);
+
+
+/* =========================
+   📌 Student Routes
+   ========================= */
+router
+  .route("/students")
+  .post(addStudent)
+  .get(getAllStudents);
+
+// CRUD operations on a single student by rollnumber
+router
+  .route("/students/:rollnumber")
+  .get(getStudentByRollNumber) // Get a single student by rollnumber
+  .put(updateStudent)       // Update a student by rollnumber
+  .delete(deleteStudent);     // Delete a student by rollnumber
 
 
 export default router;

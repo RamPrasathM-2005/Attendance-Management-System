@@ -119,26 +119,26 @@ const dbConfig = {
 
     // 5) SECTION
     await connection.execute(`
-      INSERT IGNORE INTO Section (sectionId, courseCode, sectionName, isActive, createdBy, updatedBy)
-      VALUES
+    INSERT IGNORE INTO Section (sectionId, courseCode, sectionName, isActive, createdBy, updatedBy)
+    VALUES
         -- Sections for CS101 (Semester 1: B.E CSE 2023-2027)
-        (1, 'CS101', 'Section A', 'YES', 'admin', 'admin'),
-        (2, 'CS101', 'Section B', 'YES', 'admin', 'admin'),
+        (1, 'CS101', 'Batch1', 'YES', 'admin', 'admin'),
+        (2, 'CS101', 'Batch2', 'YES', 'admin', 'admin'),
         -- Sections for MA101 (Semester 1: B.E CSE 2023-2027)
-        (3, 'MA101', 'Section A', 'YES', 'admin', 'admin'),
-        (4, 'MA101', 'Section B', 'YES', 'admin', 'admin'),
+        (3, 'MA101', 'Batch1', 'YES', 'admin', 'admin'),
+        (4, 'MA101', 'Batch2', 'YES', 'admin', 'admin'),
         -- Sections for CS202 (Semester 2: B.E CSE 2023-2027)
-        (5, 'CS202', 'Section A', 'YES', 'admin', 'admin'),
-        (6, 'CS202', 'Section B', 'YES', 'admin', 'admin'),
+        (5, 'CS202', 'Batch1', 'YES', 'admin', 'admin'),
+        (6, 'CS202', 'Batch2', 'YES', 'admin', 'admin'),
         -- Sections for EC101 (Semester 1: B.E ECE 2023-2027)
-        (7, 'EC101', 'Section A', 'YES', 'admin', 'admin'),
-        (8, 'EC101', 'Section B', 'YES', 'admin', 'admin'),
+        (7, 'EC101', 'Batch1', 'YES', 'admin', 'admin'),
+        (8, 'EC101', 'Batch2', 'YES', 'admin', 'admin'),
         -- Sections for IT101 (Semester 1: B.Tech IT 2024-2028)
-        (9, 'IT101', 'Section A', 'YES', 'admin', 'admin'),
-        (10, 'IT101', 'Section B', 'YES', 'admin', 'admin'),
+        (9, 'IT101', 'Batch1', 'YES', 'admin', 'admin'),
+        (10, 'IT101', 'Batch2', 'YES', 'admin', 'admin'),
         -- Sections for AI101 (Semester 1: B.Tech AIDS 2025-2029)
-        (11, 'AI101', 'Section A', 'YES', 'admin', 'admin'),
-        (12, 'AI101', 'Section B', 'YES', 'admin', 'admin')
+        (11, 'AI101', 'Batch1', 'YES', 'admin', 'admin'),
+        (12, 'AI101', 'Batch2', 'YES', 'admin', 'admin')
     `);
 
     // 6) STAFFCOURSE
@@ -162,6 +162,22 @@ const dbConfig = {
         (11, 'AIDS001', 'AI101', 11, 6), -- Naskath -> AI101 Section A (AIDS)
         (12, 'AIDS002', 'AI101', 12, 6)  -- Shenbagaraman -> AI101 Section B (AIDS)
     `);
+
+    await connection.execute(`
+        INSERT IGNORE INTO Student (rollnumber, name, batchId, semesterNumber, createdBy, updatedBy)
+        VALUES
+            ('CSE23A001', 'Ram', 1, 1, 'admin', 'admin'),
+            ('CSE23A002', 'Shyam', 1, 1, 'admin', 'admin'),
+            ('ECE23A001', 'Kiran', 2, 1, 'admin', 'admin');
+    `);
+
+// 6) StudentCourse - Seed data for student enrollments
+      await connection.execute(`
+        INSERT IGNORE INTO StudentCourse (studentCourseId, rollnumber, courseCode, sectionId)
+        VALUES
+            (1, 'CSE23A001', 'CS101', 1), -- Ram in CS101 Batch1
+            (2, 'CSE23A002', 'CS101', 2); -- Shyam in CS101 Batch2
+      `);
 
     await connection.commit();
     console.log('✅ Seed data inserted successfully');

@@ -23,6 +23,18 @@ import {
   deleteStaffAllocation,
 } from "../../controllers/staffCourseController.js";
 
+import {
+  searchStudents,
+  getAvailableCourses,
+  enrollStudentInCourse,
+  updateStudentBatch,
+} from "../../controllers/studentController.js";
+
+import {
+  addSectionsToCourse,
+  updateSectionsForCourse,
+} from "../../controllers/sectionController.js";
+
 const router = express.Router();
 
 /* =========================
@@ -69,6 +81,21 @@ router.put("/staff-courses/:staffCourseId", updateStaffAllocation); // Update a 
 router.get("/courses/:courseId/staff", getStaffAllocationsByCourse); // Get staff allocations for a course
 router.get("/staff/:staffId/courses", getCourseAllocationsByStaff); // Get course allocations for a staff
 router.delete("/staff-courses/:staffCourseId", deleteStaffAllocation); // Delete a staff-course allocation
+
+
+
+
+router.get("/students/search", searchStudents);
+router.get("/courses/available/:semesterNumber", getAvailableCourses);
+router.post("/students/enroll", enrollStudentInCourse);
+router.put("/students/:rollnumber/batch", updateStudentBatch);
+
+
+// Add sections to a course
+router.post("/courses/:courseCode/sections", addSectionsToCourse);
+
+// Update sections for a course
+router.put("/courses/:courseCode/sections", updateSectionsForCourse);
 
 
 export default router;

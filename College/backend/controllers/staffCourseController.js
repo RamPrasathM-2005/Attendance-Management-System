@@ -334,20 +334,7 @@ export const deleteStaffAllocation = catchAsync(async (req, res) => {
     });
   }
 
-  // Check for dependencies (e.g., PeriodAttendance)
-  const [dependencies] = await pool.execute(
-    `SELECT (SELECT COUNT(*) FROM PeriodAttendance 
-             WHERE staffId = (SELECT staffId FROM StaffCourse WHERE staffCourseId = ?) 
-             AND courseCode = (SELECT courseCode FROM StaffCourse WHERE staffCourseId = ?) 
-             AND sectionId = (SELECT sectionId FROM StaffCourse WHERE staffCourseId = ?)) AS attendanceCount`,
-    [staffCourseId, staffCourseId, staffCourseId]
-  );
-  if (dependencies[0].attendanceCount > 0) {
-    return res.status(400).json({
-      status: "failure",
-      message: "Cannot delete allocation with existing attendance records",
-    });
-  }
+ 
 
   // Delete allocation
   const [result] = await pool.execute(`DELETE FROM StaffCourse WHERE staffCourseId = ?`, [staffCourseId]);

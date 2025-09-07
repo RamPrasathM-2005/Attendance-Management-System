@@ -158,6 +158,8 @@ const initDatabase = async () => {
                 batchId INT NOT NULL,
                 semesterNumber INT NOT NULL CHECK (semesterNumber BETWEEN 1 AND 8),
                 isActive ENUM('YES','NO') DEFAULT 'YES',
+                createdBy VARCHAR(150),
+                updatedBy VARCHAR(150),
                 createdDate DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updatedDate DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 CONSTRAINT fk_student_batch FOREIGN KEY (batchId) REFERENCES Batch(batchId)
@@ -165,13 +167,20 @@ const initDatabase = async () => {
             )
         `);
 
-        // 8) StudentCourse - Enrolls students in courses with section (e.g., Ram in Java, section A)
+            // 8) StudentCourse - Enrolls students in courses with section (e.g., Ram in Java, section A)
+           // ... previous table definitions ...
+
+// 8) StudentCourse - Enrolls students in courses with section (e.g., Ram in Java, section A)
         await connection.execute(`
             CREATE TABLE IF NOT EXISTS StudentCourse (
                 studentCourseId INT PRIMARY KEY AUTO_INCREMENT,
                 rollnumber VARCHAR(20) NOT NULL,
                 courseCode VARCHAR(20) NOT NULL,
                 sectionId INT NOT NULL,
+                createdBy VARCHAR(150),
+                updatedBy VARCHAR(150),
+                createdDate DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updatedDate DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 UNIQUE (rollnumber, courseCode, sectionId),
                 CONSTRAINT fk_sc_student FOREIGN KEY (rollnumber) REFERENCES Student(rollnumber)
                     ON UPDATE CASCADE ON DELETE CASCADE,
@@ -181,6 +190,8 @@ const initDatabase = async () => {
                     ON UPDATE CASCADE ON DELETE CASCADE
             )
         `);
+
+// ... remaining table definitions ...
 
         // 9) StaffCourse - Allocates staff to courses and sections (e.g., Kalaiselvi to Java, section A)
         await connection.execute(`

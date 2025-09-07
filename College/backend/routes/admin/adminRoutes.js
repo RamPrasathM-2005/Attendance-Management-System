@@ -43,6 +43,16 @@ import {
   deleteStudent,
 } from "../../controllers/studentController.js";
 
+
+import {
+  getAllBatches,
+  getBatchById,
+  createBatch,
+  updateBatch,
+  deleteBatch,
+  getBatchByDetails,
+} from "../../controllers/batchController.js";
+
 const router = express.Router();
 
 /* =========================
@@ -120,6 +130,25 @@ router
   .get(getStudentByRollNumber) // Get a single student by rollnumber
   .put(updateStudent)       // Update a student by rollnumber
   .delete(deleteStudent);     // Delete a student by rollnumber
+
+
+
+  /* =========================
+   📌 Batch Routes
+   ========================= */
+router.get("/batches/find", getBatchByDetails);
+router
+  .route("/batches")
+  .get(getAllBatches)
+  .post(createBatch);
+
+router
+  .route("/batches/:batchId")
+  .get(getBatchById)
+  .put(updateBatch)
+  .delete(deleteBatch);
+
+
 
 
 export default router;

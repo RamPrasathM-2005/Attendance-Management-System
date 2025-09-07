@@ -1,53 +1,68 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GraduationCap } from 'lucide-react';
+import { toast, ToastContainer } from 'react-toastify';
+import axios from 'axios';
 import SearchBar from './SearchBar';
 import SemesterList from './SemesterList';
 import CreateSemesterForm from './CreateSemesterForm';
 import SemesterDetails from './SemesterDetails';
 
+const API_BASE = 'http://localhost:4000/api/admin';
+
 const ManageSemesters = () => {
-  const [semesters, setSemesters] = useState([
-    { id: 1, batch: '2023-2027', department: 'Computer Science Engineering', semester: 3, totalCourses: 6, totalStudents: 45, createdAt: '2024-01-15' },
-    { id: 2, batch: '2024-2028', department: 'Information Technology', semester: 1, totalCourses: 5, totalStudents: 52, createdAt: '2024-08-20' },
-    { id: 3, batch: '2022-2026', department: 'Electronics & Communication', semester: 5, totalCourses: 7, totalStudents: 38, createdAt: '2023-07-10' },
-    { id: 4, batch: '2023-2027', department: 'Mechanical Engineering', semester: 2, totalCourses: 6, totalStudents: 41, createdAt: '2024-01-22' }
-  ]);
-
-
-  //For adding new Semester
+  const [allSemesters, setAllSemesters] = useState([]);
+  const [filteredSemesters, setFilteredSemesters] = useState([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
-
-  //To check whether select i Clicked semester or not
   const [selectedSemester, setSelectedSemester] = useState(null);
+  const [searchQuery, setSearchQuery] = useState({ degree: '', batch: '', branch: '', semesterNumber: '' });
+  const [loading, setLoading] = useState(true);
 
-  //Search bar
-  const [searchQuery, setSearchQuery] = useState({ batch: '', department: '', semester: '' });
+  useEffect(() => {
+    fetchSemesters();
+  }, []);
 
-  const departments = [
-    'Computer Science Engineering',
-    'Information Technology',
-    'Electronics & Communication',
-    'Mechanical Engineering',
-    'Civil Engineering',
-    'Electrical Engineering'
-  ];
-
-  const handleCreateSemester = (newSemester) => {
-    setSemesters([...semesters, { id: semesters.length + 1, ...newSemester }]);
-    setShowCreateForm(false);
+  const fetchSemesters = async () => {
+    try {
+      const { data } = await axios.get(`${API_BASE}/semesters`);
+      setAllSemesters(data.data || []);
+      setFilteredSemesters(data.data || []);
+    } catch (err) {
+      toast.error('Failed to fetch semesters');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const filteredSemesters = semesters.filter(s => {
-    const batchMatch = s.batch.toLowerCase().includes(searchQuery.batch.toLowerCase());
-    const deptMatch = s.department.toLowerCase().includes(searchQuery.department.toLowerCase());
-    const semMatch = searchQuery.semester ? s.semester === parseInt(searchQuery.semester) : true;
-    return batchMatch && deptMatch && semMatch;
-  });
+  useEffect(() => {
+    let filtered = allSemesters;
+    if (searchQuery.degree) filtered = filtered.filter(s => s.degree === searchQuery.degree);
+    if (searchQuery.batch) filtered = filtered.filter(s => s.batch.includes(searchQuery.batch));
+    if (searchQuery.branch) filtered = filtered.filter(s => s.branch === searchQuery.branch);
+    if (searchQuery.semesterNumber) filtered = filtered.filter(s => s.semesterNumber === parseInt(searchQuery.semesterNumber));
+
+    // Sort by semesterId descending (last 5)
+    filtered.sort((a, b) => b.semesterId - a.semesterId);
+    setFilteredSemesters(filtered.slice(0, 5));
+  }, [searchQuery, allSemesters]);
+
+  const handleDeleteSemester = (semesterId) => {
+    setAllSemesters(prev => prev.filter(s => s.semesterId !== semesterId));
+    setFilteredSemesters(prev => prev.filter(s => s.semesterId !== semesterId));
+    if (selectedSemester?.semesterId === semesterId) {
+      setSelectedSemester(null);
+    }
+  };
+
+  const handleEditSemester = () => {
+    fetchSemesters(); // Refresh after edit
+  };
+
+  if (loading) return <div>Loading...</div>;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
+      <ToastContainer position="top-right" autoClose={3000} />
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
             <GraduationCap className="w-8 h-8 text-blue-600" />
@@ -56,21 +71,27 @@ const ManageSemesters = () => {
           <p className="text-gray-600">Create and manage semesters for different batches and departments</p>
         </div>
 
-
-        {/* Not Selecting the Semester Icon. If selected it redirects to semester with courses page other wise just showing the content only*/}
         {!selectedSemester ? (
           <>
-            <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} departments={departments} />
-            <SemesterList semesters={filteredSemesters} onSemesterClick={setSelectedSemester} />
+            <SearchBar searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
+            <SemesterList 
+              semesters={filteredSemesters} 
+              onSemesterClick={setSelectedSemester} 
+              onDelete={handleDeleteSemester} 
+              onEdit={handleEditSemester} // Pass edit refresh
+            />
             <CreateSemesterForm
               showCreateForm={showCreateForm}
               setShowCreateForm={setShowCreateForm}
-              onCreateSemester={handleCreateSemester}
-              departments={departments}
+              onRefresh={fetchSemesters}
             />
           </>
         ) : (
-          <SemesterDetails semester={selectedSemester} onBack={() => setSelectedSemester(null)} />
+          <SemesterDetails 
+            semester={selectedSemester} 
+            onBack={() => setSelectedSemester(null)} 
+            onDelete={handleDeleteSemester} 
+          />
         )}
       </div>
     </div>

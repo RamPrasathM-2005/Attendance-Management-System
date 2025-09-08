@@ -6,6 +6,8 @@ import SearchBar from './SearchBar';
 import SemesterList from './SemesterList';
 import CreateSemesterForm from './CreateSemesterForm';
 import SemesterDetails from './SemesterDetails';
+import Swal from 'sweetalert2';
+import { branchMap } from './branchMap';
 
 const API_BASE = 'http://localhost:4000/api/admin';
 
@@ -40,21 +42,69 @@ const ManageSemesters = () => {
     if (searchQuery.branch) filtered = filtered.filter(s => s.branch === searchQuery.branch);
     if (searchQuery.semesterNumber) filtered = filtered.filter(s => s.semesterNumber === parseInt(searchQuery.semesterNumber));
 
-    // Sort by semesterId descending (last 5)
     filtered.sort((a, b) => b.semesterId - a.semesterId);
     setFilteredSemesters(filtered.slice(0, 5));
   }, [searchQuery, allSemesters]);
 
   const handleDeleteSemester = (semesterId) => {
-    setAllSemesters(prev => prev.filter(s => s.semesterId !== semesterId));
-    setFilteredSemesters(prev => prev.filter(s => s.semesterId !== semesterId));
-    if (selectedSemester?.semesterId === semesterId) {
-      setSelectedSemester(null);
-    }
+    Swal.fire({
+      title: 'Are you sure?',
+      text: 'This action will permanently delete the semester and its associated data!',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, delete it!',
+      cancelButtonText: 'Cancel'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        axios.delete(`${API_BASE}/semesters/${semesterId}`)
+          .then((response) => {
+            if (response.data.status === 'success') {
+              setAllSemesters(prev => prev.filter(s => s.semesterId !== semesterId));
+              setFilteredSemesters(prev => prev.filter(s => s.semesterId !== semesterId));
+              if (selectedSemester?.semesterId === semesterId) {
+                setSelectedSemester(null);
+              }
+              Swal.fire({
+                title: 'Success',
+                text: 'Semester deleted successfully',
+                icon: 'success',
+                confirmButtonText: 'OK'
+              });
+            } else {
+              Swal.fire({
+                title: 'Error',
+                text: response.data.message || 'Failed to delete semester',
+                icon: 'error',
+                confirmButtonText: 'OK'
+              });
+            }
+          })
+          .catch((err) => {
+            const errorMsg = err.response?.data?.message || err.message;
+            if (errorMsg.includes('foreign key constraint fails')) {
+              Swal.fire({
+                title: 'Cannot Delete',
+                text: 'This semester cannot be deleted because it has associated courses. Please remove or reassign the courses first.',
+                icon: 'error',
+                confirmButtonText: 'OK'
+              });
+            } else {
+              Swal.fire({
+                title: 'Error',
+                text: 'Failed to delete semester',
+                icon: 'error',
+                confirmButtonText: 'OK'
+              });
+            }
+          });
+      }
+    });
   };
 
   const handleEditSemester = () => {
-    fetchSemesters(); // Refresh after edit
+    fetchSemesters();
   };
 
   if (loading) return <div>Loading...</div>;
@@ -78,12 +128,13 @@ const ManageSemesters = () => {
               semesters={filteredSemesters} 
               onSemesterClick={setSelectedSemester} 
               onDelete={handleDeleteSemester} 
-              onEdit={handleEditSemester} // Pass edit refresh
+              onEdit={handleEditSemester} 
             />
             <CreateSemesterForm
               showCreateForm={showCreateForm}
               setShowCreateForm={setShowCreateForm}
               onRefresh={fetchSemesters}
+              branchMap={branchMap}
             />
           </>
         ) : (

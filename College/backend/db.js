@@ -129,7 +129,7 @@ const initDatabase = async () => {
                 createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 CONSTRAINT fk_course_sem FOREIGN KEY (semesterId) REFERENCES Semester(semesterId)
-                    ON UPDATE CASCADE ON DELETE RESTRICT
+                    ON UPDATE CASCADE ON DELETE CASCADE
             )
         `);
 
@@ -167,10 +167,7 @@ const initDatabase = async () => {
             )
         `);
 
-            // 8) StudentCourse - Enrolls students in courses with section (e.g., Ram in Java, section A)
-           // ... previous table definitions ...
-
-// 8) StudentCourse - Enrolls students in courses with section (e.g., Ram in Java, section A)
+        // 8) StudentCourse - Enrolls students in courses with section (e.g., Ram in Java, section A)
         await connection.execute(`
             CREATE TABLE IF NOT EXISTS StudentCourse (
                 studentCourseId INT PRIMARY KEY AUTO_INCREMENT,
@@ -190,8 +187,6 @@ const initDatabase = async () => {
                     ON UPDATE CASCADE ON DELETE CASCADE
             )
         `);
-
-// ... remaining table definitions ...
 
         // 9) StaffCourse - Allocates staff to courses and sections (e.g., Kalaiselvi to Java, section A)
         await connection.execute(`

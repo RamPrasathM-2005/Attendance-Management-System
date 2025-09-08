@@ -1,25 +1,14 @@
 import React from 'react';
 import { BookOpen, ChevronRight, Trash2, Edit } from 'lucide-react';
 import { branchMap } from './branchMap';
-import { toast } from 'react-toastify';
-import axios from 'axios';
-import SemesterUpdateForm from './SemesterUpdateForm'; // Import new form
+import SemesterUpdateForm from './SemesterUpdateForm';
 
-const API_BASE = 'http://localhost:4000/api/admin';
-
-const SemesterCard = ({ semester, onClick, onDelete, onEdit, index }) => { // Added onEdit prop
+const SemesterCard = ({ semester, onClick, onDelete, onEdit, index }) => {
   const [showUpdateForm, setShowUpdateForm] = React.useState(false);
 
-  const handleDelete = async () => {
-    if (window.confirm('Are you sure you want to delete this semester?')) {
-      try {
-        await axios.delete(`${API_BASE}/semesters/${semester.semesterId}`);
-        toast.success('Semester deleted successfully');
-        onDelete(semester.semesterId);
-      } catch (err) {
-        toast.error('Failed to delete semester');
-      }
-    }
+  const handleDelete = (e) => {
+    e.stopPropagation();
+    onDelete(semester.semesterId);
   };
 
   const handleEditClick = (e) => {
@@ -68,7 +57,7 @@ const SemesterCard = ({ semester, onClick, onDelete, onEdit, index }) => { // Ad
               <button onClick={handleEditClick} className="p-1 hover:bg-blue-100 rounded opacity-0 group-hover:opacity-100 transition-opacity">
                 <Edit className="w-4 h-4 text-blue-600" />
               </button>
-              <button onClick={(e) => { e.stopPropagation(); handleDelete(); }} className="p-1 hover:bg-red-100 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+              <button onClick={handleDelete} className="p-1 hover:bg-red-100 rounded opacity-0 group-hover:opacity-100 transition-opacity">
                 <Trash2 className="w-4 h-4 text-red-600" />
               </button>
             </div>
@@ -80,7 +69,7 @@ const SemesterCard = ({ semester, onClick, onDelete, onEdit, index }) => { // Ad
           isOpen={showUpdateForm}
           onClose={() => setShowUpdateForm(false)}
           semester={semester}
-          onRefresh={onEdit} // Pass refresh to parent
+          onRefresh={onEdit}
         />
       )}
     </>

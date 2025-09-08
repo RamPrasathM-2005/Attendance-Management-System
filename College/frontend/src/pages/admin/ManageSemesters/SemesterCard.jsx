@@ -1,10 +1,64 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { BookOpen, ChevronRight, Trash2, Edit } from 'lucide-react';
 import { branchMap } from './branchMap';
 import SemesterUpdateForm from './SemesterUpdateForm';
+import axios from 'axios';
+
+// Define the API base URL
+const API_BASE = 'http://localhost:4000/api/admin';
 
 const SemesterCard = ({ semester, onClick, onDelete, onEdit, index }) => {
-  const [showUpdateForm, setShowUpdateForm] = React.useState(false);
+  // State for courses, loading, and error
+  const [courses, setCourses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [showUpdateForm, setShowUpdateForm] = useState(false);
+
+  // Fetch courses when component mounts or semester.semesterId changes
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        setLoading(true);
+        console.log('Fetching courses for semesterId:', semester.semesterId);
+        const response = await axios.get(`${API_BASE}/semesters/${semester.semesterId}/courses`);
+        console.log('API response:', response.data);
+
+        // Handle response data
+        const fetchedCourses = Array.isArray(response.data.data)
+          ? response.data.data
+          : Array.isArray(response.data)
+            ? response.data
+            : [];
+        setCourses(fetchedCourses);
+        setError(null); // Clear any previous errors
+        console.log('Courses set to:', fetchedCourses, 'Length:', fetchedCourses.length);
+        setLoading(false);
+      } catch (err) {
+        console.error('Error fetching courses:', err.message, err.response?.status, err.response?.data);
+        // Handle 404 with "No active courses found" as a valid case
+        if (
+          err.response?.status === 404 &&
+          err.response?.data?.message.includes('No active courses found')
+        ) {
+          setCourses([]); // Treat as empty course list
+          setError(null); // Clear error
+        } else {
+          setError('Failed to load courses');
+          setCourses([]); // Ensure courses is an empty array on other errors
+        }
+        setLoading(false);
+      }
+    };
+
+    if (semester.semesterId) {
+      fetchCourses();
+    } else {
+      console.warn('Invalid semesterId:', semester.semesterId);
+      setError('Invalid semester ID');
+      setCourses([]);
+      setLoading(false);
+    }
+  }, [semester.semesterId]);
 
   const handleDelete = (e) => {
     e.stopPropagation();
@@ -46,7 +100,13 @@ const SemesterCard = ({ semester, onClick, onDelete, onEdit, index }) => {
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Courses</span>
-              <span className="font-medium text-gray-800">0</span>
+              {loading ? (
+                <span className="font-medium text-gray-800">Loading...</span>
+              ) : error ? (
+                <span className="font-medium text-red-600">{error}</span>
+              ) : (
+                <span className="font-medium text-gray-800">{courses.length}</span>
+              )}
             </div>
           </div>
 

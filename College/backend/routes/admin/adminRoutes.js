@@ -21,20 +21,20 @@ import {
   getStaffAllocationsByCourse,
   getCourseAllocationsByStaff,
   deleteStaffAllocation,
+  getUsers,
 } from "../../controllers/staffCourseController.js";
-
 import {
   searchStudents,
   getAvailableCourses,
   enrollStudentInCourse,
   updateStudentBatch,
 } from "../../controllers/studentAllocationController.js";
-
 import {
+  getSectionsForCourse,
   addSectionsToCourse,
   updateSectionsForCourse,
+  deleteSection,
 } from "../../controllers/sectionController.js";
-
 import {
   addStudent,
   getAllStudents,
@@ -42,8 +42,6 @@ import {
   updateStudent,
   deleteStudent,
 } from "../../controllers/studentController.js";
-
-
 import {
   getAllBatches,
   getBatchById,
@@ -88,11 +86,10 @@ router
   .put(updateCourse)
   .delete(deleteCourse);
 
-
-
 /* =========================
    📌 Staff-Course Allocation Routes
    ========================= */
+router.get("/users", getUsers);
 router.post("/courses/:courseId/staff", allocateStaffToCourse); // Allocate staff to a course (Courses page)
 router.post("/staff/:staffId/courses", allocateCourseToStaff); // Allocate course to a staff (Staff page)
 router.put("/staff-courses/:staffCourseId", updateStaffAllocation); // Update a staff-course allocation
@@ -100,21 +97,21 @@ router.get("/courses/:courseId/staff", getStaffAllocationsByCourse); // Get staf
 router.get("/staff/:staffId/courses", getCourseAllocationsByStaff); // Get course allocations for a staff
 router.delete("/staff-courses/:staffCourseId", deleteStaffAllocation); // Delete a staff-course allocation
 
-
-
-
+/* =========================
+   📌 Student Allocation Routes
+   ========================= */
 router.get("/students/search", searchStudents);
 router.get("/courses/available/:semesterNumber", getAvailableCourses);
 router.post("/students/enroll", enrollStudentInCourse);
 router.put("/students/:rollnumber/batch", updateStudentBatch);
 
-
-// Add sections to a course
-router.post("/courses/:courseCode/sections", addSectionsToCourse);
-
-// Update sections for a course
-router.put("/courses/:courseCode/sections", updateSectionsForCourse);
-
+/* =========================
+   📌 Section (Batch) Routes
+   ========================= */
+router.get("/courses/:courseCode/sections", getSectionsForCourse); // Fetch all sections (batches) for a course
+router.post("/courses/:courseCode/sections", addSectionsToCourse); // Add new sections (batches) to a course
+router.put("/courses/:courseCode/sections", updateSectionsForCourse); // Update sections for a course
+router.delete("/courses/:courseCode/sections/:sectionName", deleteSection);
 
 /* =========================
    📌 Student Routes
@@ -124,16 +121,13 @@ router
   .post(addStudent)
   .get(getAllStudents);
 
-// CRUD operations on a single student by rollnumber
 router
   .route("/students/:rollnumber")
   .get(getStudentByRollNumber) // Get a single student by rollnumber
   .put(updateStudent)       // Update a student by rollnumber
   .delete(deleteStudent);     // Delete a student by rollnumber
 
-
-
-  /* =========================
+/* =========================
    📌 Batch Routes
    ========================= */
 router.get("/batches/find", getBatchByDetails);
@@ -147,8 +141,5 @@ router
   .get(getBatchById)
   .put(updateBatch)
   .delete(deleteBatch);
-
-
-
 
 export default router;

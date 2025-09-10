@@ -1,16 +1,44 @@
 import pool from "../db.js";
 import catchAsync from "../utils/catchAsync.js";
 
+
+export const getUsers = catchAsync(async (req, res) => {
+  const [rows] = await pool.execute(
+    `SELECT staffId, name, departmentId 
+     FROM Users 
+     WHERE role = 'STAFF' AND isActive = 'YES'`
+  );
+
+  // Map departmentId to departmentName (optional, if needed by frontend)
+  const [deptRows] = await pool.execute(
+    `SELECT departmentId, departmentName FROM Department WHERE isActive = 'YES'`
+  );
+  const deptMap = Object.fromEntries(deptRows.map(row => [row.departmentId, row.departmentName]));
+
+  const staffData = rows.map(user => ({
+    id: user.staffId,
+    name: user.name,
+    departmentId: user.departmentId,
+    departmentName: deptMap[user.departmentId] || 'Unknown',
+  }));
+
+  res.status(200).json({
+    status: 'success',
+    data: staffData,
+  });
+});
+
+
 // Allocate Staff to a Course (Courses page flow)
 export const allocateStaffToCourse = catchAsync(async (req, res) => {
   const { courseId } = req.params;
-  const { staffId, sectionName, departmentId } = req.body;
+  const { staffName, sectionName, departmentName } = req.body;
 
   // Validate required fields
-  if (!staffId || !sectionName || !departmentId) {
+  if (!staffName || !sectionName || !departmentName) {
     return res.status(400).json({
       status: "failure",
-      message: "staffId, sectionName, and departmentId are required",
+      message: "staffName, sectionName, and departmentName are required",
     });
   }
 
@@ -27,17 +55,31 @@ export const allocateStaffToCourse = catchAsync(async (req, res) => {
   }
   const { courseCode } = courseRows[0];
 
-  // Validate staffId and departmentId
+  // Validate departmentName and get departmentId
+  const [deptRows] = await pool.execute(
+    `SELECT departmentId FROM Department WHERE departmentName = ? AND isActive = 'YES'`,
+    [departmentName]
+  );
+  if (deptRows.length === 0) {
+    return res.status(404).json({
+      status: "failure",
+      message: `No active department found with departmentName ${departmentName}`,
+    });
+  }
+  const { departmentId } = deptRows[0];
+
+  // Validate staffName and get staffId (assuming name is unique per department)
   const [staffRows] = await pool.execute(
-    `SELECT userId FROM Users WHERE staffId = ? AND departmentId = ? AND role = 'STAFF' AND isActive = 'YES'`,
-    [staffId, departmentId]
+    `SELECT staffId FROM Users WHERE name = ? AND departmentId = ? AND role = 'STAFF' AND isActive = 'YES'`,
+    [staffName, departmentId]
   );
   if (staffRows.length === 0) {
     return res.status(404).json({
       status: "failure",
-      message: `No active staff found with staffId ${staffId} in departmentId ${departmentId}`,
+      message: `No active staff found with name "${staffName}" in department ${departmentName}`,
     });
   }
+  const { staffId } = staffRows[0];
 
   // Validate sectionName and get sectionId
   const [sectionRows] = await pool.execute(
@@ -60,7 +102,7 @@ export const allocateStaffToCourse = catchAsync(async (req, res) => {
   if (existingAllocation.length > 0) {
     return res.status(400).json({
       status: "failure",
-      message: `Staff ${staffId} is already allocated to course ${courseCode} in section ${sectionName}`,
+      message: `Staff "${staffName}" is already allocated to course ${courseCode} in section ${sectionName}`,
     });
   }
 
@@ -77,7 +119,6 @@ export const allocateStaffToCourse = catchAsync(async (req, res) => {
     staffCourseId: result.insertId,
   });
 });
-
 // Allocate Course to a Staff (Staff page flow)
 export const allocateCourseToStaff = catchAsync(async (req, res) => {
   const { staffId } = req.params;

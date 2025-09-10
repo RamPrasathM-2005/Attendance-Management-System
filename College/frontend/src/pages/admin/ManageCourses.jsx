@@ -12,363 +12,467 @@ import {
   Save,
   Eye,
   Settings,
-  GraduationCap
+  GraduationCap,
+  Trash2,
+  Filter
 } from 'lucide-react';
+import CourseForm from './ManageSemesters/CourseForm';
+import { toast } from 'react-toastify';
+import axios from 'axios';
+
+const API_BASE = 'http://localhost:4000/api/admin';
+
+// Static mapping for branch to departmentId
+const departmentMap = {
+  'CSE': 1,
+  'ECE': 2,
+  'ME': 3,
+  'CIVIL': 4,
+};
 
 const ManageCourses = () => {
-  // Sample data - replace with actual API calls
-  const [courses, setCourses] = useState([
-    {
-      id: 1,
-      code: 'CS101',
-      name: 'Introduction to Programming',
-      credits: 4,
-      type: 'Theory',
-      semester: 'Semester 1',
-      batch: 'B.Tech CSE 2024',
-      batches: [
-        { 
-          id: 1, 
-          name: 'Batch A', 
-          students: 45,
-          staff: [
-            { id: 1, name: 'Dr. John Smith', role: 'Primary' },
-            { id: 2, name: 'Prof. Sarah Wilson', role: 'Lab Assistant' }
-          ]
-        },
-        { 
-          id: 2, 
-          name: 'Batch B', 
-          students: 42,
-          staff: [
-            { id: 3, name: 'Dr. Mike Johnson', role: 'Primary' }
-          ]
-        }
-      ]
-    },
-    {
-      id: 2,
-      code: 'CS201',
-      name: 'Data Structures and Algorithms',
-      credits: 3,
-      type: 'Integrated',
-      semester: 'Semester 3',
-      batch: 'B.Tech CSE 2023',
-      batches: [
-        { 
-          id: 3, 
-          name: 'Batch A', 
-          students: 38,
-          staff: [
-            { id: 4, name: 'Dr. Alice Brown', role: 'Primary' }
-          ]
-        }
-      ]
-    },
-    {
-      id: 3,
-      code: 'CS301L',
-      name: 'Database Management Lab',
-      credits: 2,
-      type: 'Lab',
-      semester: 'Semester 5',
-      batch: 'B.Tech CSE 2022',
-      batches: [
-        { 
-          id: 4, 
-          name: 'Batch A', 
-          students: 35,
-          staff: [
-            { id: 5, name: 'Prof. David Lee', role: 'Lab Instructor' }
-          ]
-        }
-      ]
-    }
-  ]);
+  const [courses, setCourses] = useState([]);
+  const [semesters, setSemesters] = useState([]);
+  const [staffList, setStaffList] = useState([]);
+  const [sections, setSections] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [selectedCourse, setSelectedCourse] = useState(null);
-  const [showCourseDetails, setShowCourseDetails] = useState(false);
-  const [activeAction, setActiveAction] = useState(null);
-  
-  // Form states
-  const [newCourse, setNewCourse] = useState({
-    code: '',
+  // Filters for course filtering
+  const [filters, setFilters] = useState({ dept: '', semester: '', name: '', type: '' }); // Add this state
+
+  // Filters for staff allocation
+  const [staffFilters, setStaffFilters] = useState({
     name: '',
-    credits: '',
-    type: 'Theory',
-    semester: '',
-    description: ''
+    id: '',
+    dept: ''
   });
 
-  // Sample data for dropdowns
-  const courseTypes = ['Theory', 'Lab', 'Integrated', 'Experiential'];
-  const semesters = ['Semester 1', 'Semester 2', 'Semester 3', 'Semester 4', 'Semester 5', 'Semester 6', 'Semester 7', 'Semester 8'];
-  const availableStaff = [
-    { id: 1, name: 'Dr. John Smith', department: 'CSE' },
-    { id: 2, name: 'Prof. Sarah Wilson', department: 'CSE' },
-    { id: 3, name: 'Dr. Mike Johnson', department: 'CSE' },
-    { id: 4, name: 'Dr. Alice Brown', department: 'CSE' },
-    { id: 5, name: 'Prof. David Lee', department: 'CSE' }
-  ];
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showAddBatchModal, setShowAddBatchModal] = useState(false);
+  const [showAllocateStaffModal, setShowAllocateStaffModal] = useState(false);
+  const [showCourseDetailsModal, setShowCourseDetailsModal] = useState(false);
+  const [showCourseForm, setShowCourseForm] = useState(false);
+  const [selectedCourse, setSelectedCourse] = useState(null);
+  const [selectedBatch, setSelectedBatch] = useState(null);
+  const [selectedSemesterId, setSelectedSemesterId] = useState('');
 
-  const filteredCourses = courses.filter(course =>
-    course.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    course.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    course.semester.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const [newBatchForm, setNewBatchForm] = useState({ numberOfBatches: 1 });
+  const [allocateStaffForm, setAllocateStaffForm] = useState({ staffId: '' });
 
-  const handleCreateCourse = () => {
-    if (newCourse.code && newCourse.name && newCourse.credits) {
-      const course = {
-        id: courses.length + 1,
-        ...newCourse,
-        credits: parseInt(newCourse.credits),
-        batches: []
-      };
-      setCourses([...courses, course]);
-      setNewCourse({ code: '', name: '', credits: '', type: 'Theory', semester: '', description: '' });
-      setShowCreateModal(false);
+  const courseTypes = ['THEORY', 'PRACTICAL', 'INTEGRATED', 'PROJECT'];
+  const categories = ['BSC', 'ESC', 'PEC', 'OEC', 'EEC', 'HSMC'];
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const semRes = await fetch(API_BASE + '/semesters');
+      const semData = await semRes.json();
+      setSemesters(semData.data || []);
+
+      const courseRes = await fetch(API_BASE + '/courses');
+      const courseData = await courseRes.json();
+      let allCourses = courseData.data || [];
+
+      allCourses = allCourses.map(course => {
+        const semester = semData.data.find(s => s.semesterId === course.semesterId);
+        return { ...course, semesterDetails: semester };
+      });
+
+      allCourses.sort((a, b) => b.courseId - a.courseId);
+      setCourses(allCourses);
+
+      const usersRes = await axios.get(`${API_BASE}/users`);
+      let staffData = usersRes.data.data.filter(user => user.role === 'staff' || user.departmentId);
+      const deptNameMap = { 1: 'Computer Science', 2: 'Electronics', 3: 'Mechanical', 4: 'Civil' };
+      staffData = staffData.map(user => ({
+        id: user.id || user.userId,
+        name: user.name || user.fullName,
+        departmentId: user.departmentId || 1,
+        departmentName: deptNameMap[user.departmentId] || 'Unknown',
+      }));
+      const uniqueStaff = staffData.filter((staff, index, self) => 
+        index === self.findIndex(s => s.id === staff.id)
+      );
+      setStaffList(uniqueStaff);
+    } catch (err) {
+      setError('Failed to fetch data');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getFilteredStaffForCourse = (course) => {
+    if (!course || !course.semesterDetails || !course.semesterDetails.branch) return [];
+    const branch = course.semesterDetails.branch;
+    const deptId = departmentMap[branch];
+    if (!deptId) return staffList;
+
+    return staffList.filter(staff => 
+      staff.departmentId === deptId &&
+      staff.name.toLowerCase().includes(staffFilters.name.toLowerCase()) &&
+      staff.id.toLowerCase().includes(staffFilters.id.toLowerCase()) &&
+      (!staffFilters.dept || staff.departmentName.toLowerCase().includes(staffFilters.dept.toLowerCase()))
+    );
+  };
+
+  const fetchCourseStaff = async (courseId) => {
+    try {
+      const course = courses.find(c => c.courseId === courseId);
+      if (!course) return;
+
+      const sectionRes = await axios.get(`${API_BASE}/courses/${course.courseCode}/sections`);
+      if (sectionRes.data && sectionRes.data.status === 'success') {
+        const batches = sectionRes.data.data.reduce((acc, section) => {
+          acc[section.sectionName] = [];
+          return acc;
+        }, {});
+
+        const staffRes = await axios.get(`${API_BASE}/courses/${courseId}/staff`);
+        if (staffRes.data && staffRes.data.status === 'success') {
+          staffRes.data.data.forEach(alloc => {
+            if (batches[alloc.sectionName]) {
+              if (!batches[alloc.sectionName].some(s => s.staffId === alloc.staffId)) {
+                batches[alloc.sectionName].push(alloc);
+              }
+            }
+          });
+        }
+        setSections(prev => ({ ...prev, [courseId]: batches }));
+        setSelectedCourse(prev => ({ ...prev, allocations: staffRes.data.data || [] }));
+      }
+    } catch (err) {
+      console.error('Error fetching course staff or sections:', err);
+    }
+  };
+
+  const handleAddBatch = async (e) => {
+    e.preventDefault();
+    if (!selectedCourse || !newBatchForm.numberOfBatches || !selectedCourse.courseCode) return;
+
+    try {
+      const res = await axios.post(`${API_BASE}/courses/${selectedCourse.courseCode}/sections`, { 
+        numberOfSections: newBatchForm.numberOfBatches 
+      });
+      if (res.status === 200 || res.status === 201) {
+        setShowAddBatchModal(false);
+        fetchCourseStaff(selectedCourse.courseId);
+        setNewBatchForm({ numberOfBatches: 1 });
+        toast.success('Batches added successfully');
+      } else {
+        toast.error('Failed to add batches');
+      }
+    } catch (err) {
+      toast.error('Error adding batches: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const handleAllocateStaff = async (staffId) => {
+    if (!selectedCourse || !selectedBatch || !staffId || !selectedCourse.courseId) return;
+
+    const branch = selectedCourse.semesterDetails?.branch;
+    const deptId = departmentMap[branch];
+    if (!deptId) {
+      toast.error('Department not mapped for this course branch');
+      return;
+    }
+
+    try {
+      const res = await axios.post(`${API_BASE}/courses/${selectedCourse.courseId}/staff`, {
+        staffId,
+        sectionName: selectedBatch,
+        departmentName: staffList.find(s => s.id === staffId)?.departmentName || 'Unknown'
+      });
+      if (res.status === 200 || res.status === 201) {
+        setShowAllocateStaffModal(false);
+        fetchCourseStaff(selectedCourse.courseId);
+        setStaffFilters({ name: '', id: '', dept: '' });
+        toast.success('Staff allocated successfully');
+      } else {
+        toast.error('Failed to allocate staff');
+      }
+    } catch (err) {
+      toast.error('Error allocating staff: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const handleDeleteBatch = async (courseCode, sectionName) => {
+    if (!confirm(`Delete batch ${sectionName}? This action cannot be undone.`)) return;
+
+    try {
+      const res = await axios.delete(`${API_BASE}/courses/${courseCode}/sections/${sectionName}`);
+      if (res.status === 200) {
+        fetchCourseStaff(selectedCourse.courseId);
+        toast.success(`Batch ${sectionName} deleted successfully`);
+      } else {
+        toast.error('Failed to delete batch');
+      }
+    } catch (err) {
+      toast.error('Error deleting batch: ' + (err.response?.data?.message || err.message));
     }
   };
 
   const handleCourseClick = (course) => {
     setSelectedCourse(course);
-    setShowCourseDetails(true);
+    setShowCourseDetailsModal(true);
+    fetchCourseStaff(course.courseId);
   };
 
-  const handleAction = (action, course = null) => {
-    setActiveAction(action);
-    if (course) setSelectedCourse(course);
-    
-    // Route simulation - in real app, use React Router
-    switch(action) {
-      case 'allocateStaff':
-        console.log(`Routing to: /admin/courses/${course?.id}/allocate-staff`);
-        break;
-      case 'allocateStudents':
-        console.log(`Routing to: /admin/courses/${course?.id}/allocate-students`);
-        break;
-      case 'addBatch':
-        console.log(`Routing to: /admin/courses/${course?.id}/add-batch`);
-        break;
-      case 'viewBatches':
-        console.log(`Routing to: /admin/courses/${course?.id}/batches`);
-        break;
-      case 'editCourse':
-        console.log(`Routing to: /admin/courses/${course?.id}/edit`);
-        break;
-      default:
-        break;
+  const handleDeleteCourse = async (courseId) => {
+    if (!confirm('Delete this course?')) return;
+    try {
+      const res = await fetch(`${API_BASE}/courses/${courseId}`, { method: 'DELETE' });
+      if (res.ok) {
+        fetchData();
+        toast.success('Course deleted successfully');
+      } else {
+        const data = await res.json();
+        toast.error(data.message || 'Failed to delete course');
+      }
+    } catch (err) {
+      toast.error('Error deleting course');
     }
   };
 
   const getCourseTypeColor = (type) => {
     const colors = {
-      'Theory': 'bg-blue-100 text-blue-800',
-      'Lab': 'bg-green-100 text-green-800',
-      'Integrated': 'bg-purple-100 text-purple-800',
-      'Experiential': 'bg-orange-100 text-orange-800'
+      'THEORY': 'bg-blue-100 text-blue-800',
+      'PRACTICAL': 'bg-green-100 text-green-800',
+      'INTEGRATED': 'bg-purple-100 text-purple-800',
+      'PROJECT': 'bg-orange-100 text-orange-800'
     };
     return colors[type] || 'bg-gray-100 text-gray-800';
   };
 
+  const openCreateModal = () => {
+    setSelectedSemesterId('');
+    setShowCreateModal(true);
+  };
+
+  const handleNextToForm = () => {
+    if (!selectedSemesterId) {
+      toast.error('Please select a semester');
+      return;
+    }
+    setShowCreateModal(false);
+    setShowCourseForm(true);
+  };
+
+  const openEditModal = (course) => {
+    setSelectedCourse(course);
+    setShowEditModal(true);
+  };
+
+  if (loading) return <div className="p-6">Loading...</div>;
+  if (error) return <div className="p-6 text-red-500">{error}</div>;
+
+  const filteredCourses = courses.filter(course => {
+    const { dept, semester, name, type } = filters; // Use filters state
+    const semDetails = course.semesterDetails;
+    return (
+      (!dept || semDetails?.branch === dept) &&
+      (!semester || semDetails?.semesterNumber.toString() === semester) &&
+      (!name || course.courseTitle.toLowerCase().includes(name.toLowerCase())) &&
+      (!type || course.type === type)
+    );
+  });
+
+  const displayCourses = Object.keys(filters).some(key => filters[key]) 
+    ? filteredCourses 
+    : courses.slice(0, 10);
+
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      {/* Header */}
-      <div className="mb-6">
-        <div className="flex justify-between items-center mb-4">
-          <div>
+    <div className="p-6 bg-gray-50 min-h-screen flex flex-col items-center">
+      <div className="w-full max-w-7xl mb-6">
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-4">
+          <div className="text-center sm:text-left">
             <h1 className="text-3xl font-bold text-gray-900">Manage Courses</h1>
-            <p className="text-gray-600 mt-1">Create and manage academic courses</p>
+            <p className="text-gray-600 mt-1">Create, edit, and manage academic courses with batches and staff</p>
           </div>
           <button
-            onClick={() => setShowCreateModal(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-colors duration-200"
+            onClick={openCreateModal}
+            className="mt-4 sm:mt-0 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-3 rounded-xl flex items-center gap-2 transition-all duration-200 transform hover:scale-[1.02] hover:shadow-lg font-semibold"
           >
             <Plus size={20} />
-            Create Course
+            Add Course
           </button>
         </div>
 
-        {/* Search Bar */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-          <input
-            type="text"
-            placeholder="Search courses by code, name, or semester..."
-            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        <div className="bg-white p-4 rounded-lg shadow-sm mb-4">
+          <div className="flex flex-wrap gap-4 items-end justify-center">
+            <div className="flex-1 min-w-[150px]">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+              <select
+                value={filters.dept}
+                onChange={(e) => setFilters({ ...filters, dept: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">All Departments</option>
+                {[...new Set(semesters.map(s => s.branch))].map(dept => (
+                  <option key={dept} value={dept}>{dept}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex-1 min-w-[150px]">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Semester</label>
+              <select
+                value={filters.semester}
+                onChange={(e) => setFilters({ ...filters, semester: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">All Semesters</option>
+                {[...new Set(semesters.map(s => s.semesterNumber))].sort((a, b) => a - b).map(num => (
+                  <option key={num} value={num}>Semester {num}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex-1 min-w-[150px]">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Course Name</label>
+              <input
+                type="text"
+                placeholder="Search by name..."
+                value={filters.name}
+                onChange={(e) => setFilters({ ...filters, name: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div className="flex-1 min-w-[150px]">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+              <select
+                value={filters.type}
+                onChange={(e) => setFilters({ ...filters, type: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">All Types</option>
+                {courseTypes.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <button
+              onClick={() => setFilters({ dept: '', semester: '', name: '', type: '' })}
+              className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg flex items-center gap-1"
+            >
+              <Filter size={16} />
+              Clear
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Courses Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredCourses.map((course) => (
-          <div
-            key={course.id}
-            className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-200 overflow-hidden cursor-pointer"
-            onClick={() => handleCourseClick(course)}
-          >
-            <div className="p-6">
-              <div className="flex justify-between items-start mb-4">
-                <div className="flex-1">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-1">{course.code}</h3>
-                  <p className="text-gray-600 text-sm line-clamp-2">{course.name}</p>
+      <div className="w-full max-w-7xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {displayCourses.map((course) => {
+          const sem = course.semesterDetails;
+          const numBatches = sections[course.courseId] ? Object.keys(sections[course.courseId]).length : 0;
+          return (
+            <div
+              key={course.courseId}
+              className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-200 overflow-hidden cursor-pointer border-2 border-gray-200"
+              onClick={() => handleCourseClick(course)}
+            >
+              <div className="p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="flex-1">
+                    <h3 className="text-xl font-semibold text-gray-900 mb-1">{course.courseCode}</h3>
+                    <p className="text-gray-600 text-sm line-clamp-2">{course.courseTitle}</p>
+                  </div>
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${getCourseTypeColor(course.type)}`}>
+                    {course.type}
+                  </span>
                 </div>
-                <span className={`px-3 py-1 rounded-full text-xs font-medium ${getCourseTypeColor(course.type)}`}>
-                  {course.type}
-                </span>
-              </div>
 
-              <div className="space-y-2 mb-4">
-                <div className="flex items-center text-sm text-gray-500">
-                  <BookOpen size={16} className="mr-2" />
-                  <span>Credits: {course.credits}</span>
+                <div className="space-y-2 mb-4">
+                  <div className="flex items-center text-sm text-gray-500">
+                    <BookOpen size={16} className="mr-2" />
+                    <span>Credits: {course.credits}</span>
+                  </div>
+                  <div className="flex items-center text-sm text-gray-500">
+                    <Calendar size={16} className="mr-2" />
+                    <span>Semester: {sem ? ` ${sem.semesterNumber} (${sem.branch})` : 'N/A'}</span>
+                  </div>
+                  <div className="flex items-center text-sm text-gray-500">
+                    <Users size={16} className="mr-2" />
+                    <span>{numBatches} Batches</span>
+                  </div>
+                  <div className="flex items-center text-sm text-gray-500">
+                    <Settings size={16} className="mr-2" />
+                    <span>Category: {course.category}</span>
+                  </div>
                 </div>
-                <div className="flex items-center text-sm text-gray-500">
-                  <Calendar size={16} className="mr-2" />
-                  <span>{course.semester}</span>
-                </div>
-                <div className="flex items-center text-sm text-gray-500">
-                  <Users size={16} className="mr-2" />
-                  <span>{course.batches?.length || 0} Batches</span>
-                </div>
-              </div>
 
-              {/* Quick Actions */}
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleAction('allocateStaff', course);
-                  }}
-                  className="bg-blue-50 hover:bg-blue-100 text-blue-600 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center justify-center gap-1"
-                >
-                  <UserPlus size={16} />
-                  Staff
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleAction('allocateStudents', course);
-                  }}
-                  className="bg-green-50 hover:bg-green-100 text-green-600 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center justify-center gap-1"
-                >
-                  <GraduationCap size={16} />
-                  Students
-                </button>
+                <div className="flex justify-between">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDeleteCourse(course.courseId); }}
+                    className="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1"
+                  >
+                    <Trash2 size={16} />
+                    Delete
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); openEditModal(course); }}
+                    className="bg-blue-50 hover:bg-blue-100 text-blue-600 px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1"
+                  >
+                    <Edit3 size={16} />
+                    Edit
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      {filteredCourses.length === 0 && (
+      {displayCourses.length === 0 && (
         <div className="text-center py-12">
           <BookOpen size={48} className="mx-auto text-gray-400 mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">No courses found</h3>
-          <p className="text-gray-500">Try adjusting your search terms or create a new course.</p>
+          <p className="text-gray-500">Try adjusting your filters or create a new course.</p>
         </div>
       )}
 
-      {/* Create Course Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-xl max-w-md w-full">
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">Quick Create Course</h2>
-                <button
-                  onClick={() => setShowCreateModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
+                <h2 className="text-2xl font-bold text-gray-900">Select Semester for New Course</h2>
+                <button onClick={() => setShowCreateModal(false)} className="text-gray-400 hover:text-gray-600">
                   <X size={24} />
                 </button>
               </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Course Code *</label>
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="e.g., CS101"
-                    value={newCourse.code}
-                    onChange={(e) => setNewCourse({...newCourse, code: e.target.value})}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Course Name *</label>
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="e.g., Introduction to Programming"
-                    value={newCourse.name}
-                    onChange={(e) => setNewCourse({...newCourse, name: e.target.value})}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Credits *</label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="6"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="3"
-                      value={newCourse.credits}
-                      onChange={(e) => setNewCourse({...newCourse, credits: e.target.value})}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Type *</label>
-                    <select
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      value={newCourse.type}
-                      onChange={(e) => setNewCourse({...newCourse, type: e.target.value})}
-                    >
-                      {courseTypes.map(type => (
-                        <option key={type} value={type}>{type}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Semester *</label>
-                  <select
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    value={newCourse.semester}
-                    onChange={(e) => setNewCourse({...newCourse, semester: e.target.value})}
-                  >
-                    <option value="">Select Semester</option>
-                    {semesters.map(semester => (
-                      <option key={semester} value={semester}>{semester}</option>
-                    ))}
-                  </select>
-                </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Select Semester *</label>
+                <select
+                  value={selectedSemesterId}
+                  onChange={(e) => setSelectedSemesterId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  required
+                >
+                  <option value="">Select Semester</option>
+                  {semesters.map(sem => (
+                    <option key={sem.semesterId} value={sem.semesterId}>
+                      Semester {sem.semesterNumber} - {sem.branch} {sem.batch || ''}
+                    </option>
+                  ))}
+                </select>
               </div>
-
-              <div className="flex gap-3 mt-6">
-                <button
-                  onClick={() => setShowCreateModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200"
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setShowCreateModal(false)} 
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
                 >
                   Cancel
                 </button>
-                <button
-                  onClick={handleCreateCourse}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
+                <button 
+                  onClick={handleNextToForm}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+                  disabled={!selectedSemesterId}
                 >
-                  <Save size={16} />
-                  Quick Create
+                  Next
                 </button>
               </div>
             </div>
@@ -376,109 +480,120 @@ const ManageCourses = () => {
         </div>
       )}
 
-      {/* Course Details Modal */}
-      {showCourseDetails && selectedCourse && (
+      {showCourseForm && (
+        <CourseForm 
+          isOpen={showCourseForm}
+          onClose={() => {
+            setShowCourseForm(false);
+            setSelectedSemesterId('');
+          }}
+          semesterId={selectedSemesterId}
+          course={null}
+          onRefresh={fetchData}
+        />
+      )}
+
+      {showEditModal && selectedCourse && (
+        <CourseForm 
+          isOpen={showEditModal} 
+          onClose={() => setShowEditModal(false)} 
+          semesterId={selectedCourse.semesterId}
+          course={selectedCourse}
+          onRefresh={fetchData}
+        />
+      )}
+
+      {showAddBatchModal && selectedCourse && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-xl max-w-md w-full">
             <div className="p-6">
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900">{selectedCourse.code}</h2>
-                  <p className="text-gray-600 mt-1">{selectedCourse.name}</p>
-                  <div className="flex items-center gap-4 mt-2">
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getCourseTypeColor(selectedCourse.type)}`}>
-                      {selectedCourse.type}
-                    </span>
-                    <span className="text-sm text-gray-500">{selectedCourse.credits} Credits</span>
-                    <span className="text-sm text-gray-500">{selectedCourse.semester}</span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowCourseDetails(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">Add Batches to {selectedCourse.courseCode}</h2>
+                <button onClick={() => setShowAddBatchModal(false)} className="text-gray-400 hover:text-gray-600">
                   <X size={24} />
                 </button>
               </div>
+              <form onSubmit={handleAddBatch}>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Number of Batches *</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={newBatchForm.numberOfBatches}
+                    onChange={(e) => setNewBatchForm({ numberOfBatches: parseInt(e.target.value) || 1 })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Batches will be auto-generated as Batch1, Batch2, etc.</p>
+                </div>
+                <div className="flex gap-3">
+                  <button type="button" onClick={() => setShowAddBatchModal(false)} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+                    Cancel
+                  </button>
+                  <button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+                    Add Batches
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
 
-              {/* Action Buttons */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-                <button
-                  onClick={() => handleAction('allocateStaff', selectedCourse)}
-                  className="bg-blue-50 hover:bg-blue-100 text-blue-600 px-4 py-3 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
-                >
-                  <UserPlus size={16} />
-                  Allocate Staff
+      {showCourseDetailsModal && selectedCourse && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">{selectedCourse.courseCode} - {selectedCourse.courseTitle}</h2>
+                <button onClick={() => { setShowCourseDetailsModal(false); setSelectedCourse(null); }} className="text-gray-400 hover:text-gray-600">
+                  <X size={24} />
                 </button>
+              </div>
+              <div className="grid grid-cols-2 gap-3 mb-6">
                 <button
-                  onClick={() => handleAction('allocateStudents', selectedCourse)}
-                  className="bg-green-50 hover:bg-green-100 text-green-600 px-4 py-3 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
-                >
-                  <GraduationCap size={16} />
-                  Allocate Students
-                </button>
-                <button
-                  onClick={() => handleAction('addBatch', selectedCourse)}
-                  className="bg-purple-50 hover:bg-purple-100 text-purple-600 px-4 py-3 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
-                >
-                  <Plus size={16} />
-                  Add Batch
-                </button>
-                <button
-                  onClick={() => handleAction('editCourse', selectedCourse)}
-                  className="bg-orange-50 hover:bg-orange-100 text-orange-600 px-4 py-3 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
+                  onClick={() => { openEditModal(selectedCourse); setShowCourseDetailsModal(false); }}
+                  className="bg-orange-50 hover:bg-orange-100 text-orange-600 px-4 py-3 rounded-lg flex items-center justify-center gap-2"
                 >
                   <Edit3 size={16} />
                   Edit Course
                 </button>
+                <button
+                  onClick={() => { setShowAddBatchModal(true); setShowCourseDetailsModal(false); }}
+                  className="bg-purple-50 hover:bg-purple-100 text-purple-600 px-4 py-3 rounded-lg flex items-center justify-center gap-2"
+                >
+                  <Plus size={16} />
+                  Add Batch
+                </button>
               </div>
-
-              {/* Batches Section */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Course Batches</h3>
-                {selectedCourse.batches && selectedCourse.batches.length > 0 ? (
-                  <div className="space-y-4">
-                    {selectedCourse.batches.map((batch) => (
-                      <div key={batch.id} className="bg-gray-50 rounded-lg p-4">
-                        <div className="flex justify-between items-start mb-3">
-                          <div>
-                            <h4 className="font-medium text-gray-900">{batch.name}</h4>
-                            <p className="text-sm text-gray-500">{batch.students} students enrolled</p>
-                          </div>
-                          <button
-                            onClick={() => handleAction('viewBatches', selectedCourse)}
-                            className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                          >
-                            <Eye size={16} />
-                            View Details
-                          </button>
-                        </div>
-                        
-                        <div>
-                          <h5 className="text-sm font-medium text-gray-700 mb-2">Assigned Staff:</h5>
-                          <div className="flex flex-wrap gap-2">
-                            {batch.staff.map((staff) => (
-                              <div key={staff.id} className="bg-white px-3 py-1 rounded-full border border-gray-200">
-                                <span className="text-sm text-gray-700">{staff.name}</span>
-                                <span className="text-xs text-gray-500 ml-1">({staff.role})</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Batches ({Object.keys(sections[selectedCourse.courseId] || {}).length})</h3>
+              <div className="space-y-3 max-h-64 overflow-y-auto">
+                {Object.entries(sections[selectedCourse.courseId] || {}).map(([batchName, staffs]) => (
+                  <div key={batchName} className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 flex justify-between items-center">
+                    <div onClick={() => { setSelectedBatch(batchName); setShowAllocateStaffModal(true); setShowCourseDetailsModal(false); }} className="cursor-pointer flex-1">
+                      <div className="flex justify-between items-center">
+                        <h4 className="font-medium text-gray-900">{batchName}</h4>
+                        <span className="text-sm text-gray-500">{staffs.length} Staff Assigned</span>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 bg-gray-50 rounded-lg">
-                    <Users size={48} className="mx-auto text-gray-400 mb-3" />
-                    <p className="text-gray-500">No batches created for this course yet.</p>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {staffs.map(staff => (
+                          <span key={staff.staffId} className="text-xs bg-white px-2 py-1 rounded-full border text-gray-700">
+                            {staff.staffName || staff.name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
                     <button
-                      onClick={() => handleAction('addBatch', selectedCourse)}
-                      className="mt-3 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors duration-200"
+                      onClick={(e) => { e.stopPropagation(); handleDeleteBatch(selectedCourse.courseCode, batchName); }}
+                      className="bg-red-50 hover:bg-red-100 text-red-600 px-2 py-1 rounded-lg text-sm font-medium transition-colors flex items-center gap-1 ml-2"
                     >
-                      Create First Batch
+                      <Trash2 size={14} />
+                      Delete
                     </button>
                   </div>
+                ))}
+                {Object.keys(sections[selectedCourse.courseId] || {}).length === 0 && (
+                  <p className="text-gray-500 italic">No batches available. Add batches to get started.</p>
                 )}
               </div>
             </div>
@@ -486,10 +601,69 @@ const ManageCourses = () => {
         </div>
       )}
 
-      {/* Debug Route Actions */}
-      {activeAction && (
-        <div className="fixed bottom-4 right-4 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg">
-          Action: {activeAction} - Check console for route
+      {showAllocateStaffModal && selectedCourse && selectedBatch && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">Allocate Staff to {selectedBatch} ({selectedCourse.courseCode})</h2>
+                <button onClick={() => { setShowAllocateStaffModal(false); setStaffFilters({ name: '', id: '', dept: '' }); }} className="text-gray-400 hover:text-gray-600">
+                  <X size={24} />
+                </button>
+              </div>
+              <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  <strong>Department Filter:</strong> {selectedCourse.semesterDetails?.branch || 'N/A'}
+                </p>
+              </div>
+              {/* Staff Filters */}
+              <div className="mb-4 space-y-2">
+                <input
+                  type="text"
+                  placeholder="Filter by name..."
+                  value={staffFilters.name}
+                  onChange={(e) => setStaffFilters({ ...staffFilters, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+                <input
+                  type="text"
+                  placeholder="Filter by ID..."
+                  value={staffFilters.id}
+                  onChange={(e) => setStaffFilters({ ...staffFilters, id: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+                <input
+                  type="text"
+                  placeholder="Filter by department..."
+                  value={staffFilters.dept}
+                  onChange={(e) => setStaffFilters({ ...staffFilters, dept: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              {/* Staff List */}
+              <div className="max-h-64 overflow-y-auto mb-4">
+                {getFilteredStaffForCourse(selectedCourse).length > 0 ? (
+                  getFilteredStaffForCourse(selectedCourse).map(staff => (
+                    <div
+                      key={staff.id}
+                      onClick={() => handleAllocateStaff(staff.id)}
+                      className="cursor-pointer bg-gray-50 p-2 rounded-lg mb-2 hover:bg-gray-100 flex justify-between items-center"
+                    >
+                      <span>{staff.name} (ID: {staff.id}, Dept: {staff.departmentName})</span>
+                      <UserPlus size={16} className="text-green-600" />
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500 italic">No staff found matching the filters.</p>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <button type="button" onClick={() => { setShowAllocateStaffModal(false); setStaffFilters({ name: '', id: '', dept: '' }); }} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

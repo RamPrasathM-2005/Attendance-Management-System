@@ -28,23 +28,20 @@ export const addSectionsToCourse = catchAsync(async (req, res) => {
       });
     }
 
-    // Check existing sections
-    const [existingSections] = await connection.execute(
-      `SELECT sectionName FROM Section WHERE courseCode = ? AND isActive = 'YES'`,
+    // Find the current maximum Batch number, considering all sections to avoid reuse
+    const [maxRows] = await connection.execute(
+      `SELECT MAX(CAST(SUBSTRING(sectionName, 6) AS UNSIGNED)) as maxNum 
+       FROM Section 
+       WHERE courseCode = ? AND sectionName LIKE 'Batch%'`,
       [courseCode]
     );
-    const usedSections = existingSections.map(row => row.sectionName);
+    const currentMax = maxRows[0].maxNum || 0;
 
     const sectionsToAdd = [];
     let newSectionsAdded = 0;
     for (let i = 1; i <= numberOfSections; i++) {
-      const sectionName = `Batch${i}`;
-      if (usedSections.includes(sectionName)) {
-        return res.status(400).json({
-          status: "failure",
-          message: `Section ${sectionName} already exists for course ${courseCode}`,
-        });
-      }
+      const sectionNum = currentMax + i;
+      const sectionName = `Batch${sectionNum}`;
       sectionsToAdd.push([courseCode, sectionName, req.user?.email || 'admin', req.user?.email || 'admin']);
       newSectionsAdded++;
     }
@@ -58,20 +55,36 @@ export const addSectionsToCourse = catchAsync(async (req, res) => {
       `;
       const values = sectionsToAdd.flat();
       await connection.execute(query, values);
-    } else if (newSectionsAdded === 0) {
-      return res.status(400).json({
-        status: "failure",
-        message: `No new sections added; all requested sections already exist for course ${courseCode}`,
-      });
     }
 
     await connection.commit();
     res.status(201).json({
       status: "success",
       message: `${newSectionsAdded} new section(s) added to course ${courseCode} successfully`,
+      data: sectionsToAdd.map(([_, sectionName]) => ({ sectionName })),
     });
   } catch (err) {
     await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
+});
+
+export const getSectionsForCourse = catchAsync(async (req, res) => {
+  const { courseCode } = req.params;
+
+  const connection = await pool.getConnection();
+  try {
+    const [sectionRows] = await connection.execute(
+      `SELECT sectionName FROM Section WHERE courseCode = ? AND isActive = 'YES'`,
+      [courseCode]
+    );
+    res.status(200).json({
+      status: "success",
+      data: sectionRows.map(row => ({ sectionName: row.sectionName })),
+    });
+  } catch (err) {
     throw err;
   } finally {
     connection.release();
@@ -154,7 +167,45 @@ export const updateSectionsForCourse = catchAsync(async (req, res) => {
     await connection.commit();
     res.status(200).json({
       status: "success",
-      message: "Sections updated successfully for course ${courseCode}",
+      message: `Sections updated successfully for course ${courseCode}`,
+    });
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
+});
+
+export const deleteSection = catchAsync(async (req, res) => {
+  const { courseCode, sectionName } = req.params;
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // Validate section
+    const [sectionRows] = await connection.execute(
+      `SELECT sectionId FROM Section WHERE courseCode = ? AND sectionName = ? AND isActive = 'YES'`,
+      [courseCode, sectionName]
+    );
+    if (sectionRows.length === 0) {
+      return res.status(404).json({
+        status: "failure",
+        message: `No active section found with sectionName ${sectionName} for course ${courseCode}`,
+      });
+    }
+
+    // Soft delete by setting isActive to 'NO'
+    await connection.execute(
+      `UPDATE Section SET isActive = 'NO', updatedBy = ?, updatedDate = CURRENT_TIMESTAMP WHERE courseCode = ? AND sectionName = ?`,
+      [req.user?.email || 'admin', courseCode, sectionName]
+    );
+
+    await connection.commit();
+    res.status(200).json({
+      status: "success",
+      message: `Section ${sectionName} deleted successfully`,
     });
   } catch (err) {
     await connection.rollback();

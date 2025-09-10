@@ -17,7 +17,7 @@ api.interceptors.request.use((config) => {
 });
 
 // Login
-export const login = async (email, password) => {  // Changed username to email for consistency
+export const login = async (email, password) => {
   const response = await api.post('/auth/login', { email, password });
   if (response.data.status === 'success') {
     const { user, token } = response.data.data;
@@ -30,8 +30,15 @@ export const login = async (email, password) => {  // Changed username to email 
 };
 
 // Register
-export const register = async (name, email, password, role) => {
-  const response = await api.post('/auth/register', { name, email, password, role: role.toUpperCase() });
+export const register = async (name, email, password, role, departmentId, staffId) => {
+  const response = await api.post('/auth/register', {
+    name,
+    email,
+    password,
+    role: role.toUpperCase(),
+    departmentId,
+    staffId
+  });
   if (response.data.status === 'success') {
     const { user, token } = response.data.data;
     localStorage.setItem('token', token);
@@ -46,7 +53,6 @@ export const register = async (name, email, password, role) => {
 export const forgotPassword = async (email) => {
   const response = await api.post('/auth/forgot-password', { email });
   if (response.data.status !== 'success') {
-    console.log(response.data.status)
     throw new Error(response.data.message || 'Failed to send email');
   }
   return response.data.message;
@@ -73,7 +79,7 @@ export const logout = async () => {
   } finally {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    localStorage.removeItem('username'); // Clear remember me
+    localStorage.removeItem('username');
   }
 };
 
@@ -81,4 +87,14 @@ export const logout = async () => {
 export const getCurrentUser = () => {
   const userStr = localStorage.getItem('user');
   return userStr ? JSON.parse(userStr) : null;
+};
+
+// Get departments
+export const getDepartments = async () => {
+  const response = await api.get('/departments');
+  if (response.data.status === 'success') {
+    return response.data.data;
+  } else {
+    throw new Error(response.data.message || 'Failed to fetch departments');
+  }
 };

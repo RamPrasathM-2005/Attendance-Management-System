@@ -62,6 +62,10 @@ export const register = async (req, res) => {
       return res.status(400).json({ status: 'failure', message: 'Role must be ADMIN or STAFF' });
     }
 
+    if (role === 'STAFF' && !departmentId) {
+      return res.status(400).json({ status: 'failure', message: 'Department is required for STAFF role' });
+    }
+
     connection = await pool.getConnection();
     await connection.beginTransaction();
 
@@ -72,6 +76,33 @@ export const register = async (req, res) => {
     );
     if (existingUser.length > 0) {
       return res.status(400).json({ status: 'failure', message: 'User already exists' });
+    }
+
+    // Validate departmentId if provided
+    if (departmentId) {
+      const [dept] = await connection.execute(
+        'SELECT departmentId FROM Department WHERE departmentId = ? AND isActive = "YES"',
+        [departmentId]
+      );
+      if (dept.length === 0) {
+        return res.status(400).json({ status: 'failure', message: 'Invalid department' });
+      }
+    }
+
+    // Validate staffId format if provided
+    if (staffId && !/^[A-Z]{3}[0-9]{3}$/.test(staffId)) {
+      return res.status(400).json({ status: 'failure', message: 'Staff ID must be in format ABC123' });
+    }
+
+    // Check if staffId is unique within department
+    if (staffId && departmentId) {
+      const [existingStaff] = await connection.execute(
+        'SELECT userId FROM Users WHERE staffId = ? AND departmentId = ?',
+        [staffId, departmentId]
+      );
+      if (existingStaff.length > 0) {
+        return res.status(400).json({ status: 'failure', message: 'Staff ID already exists in this department' });
+      }
     }
 
     // Hash password
@@ -87,7 +118,7 @@ export const register = async (req, res) => {
 
     const userId = result.insertId;
     const [userRows] = await connection.execute(
-      'SELECT userId, name, email, role, departmentId FROM Users WHERE userId = ?',
+      'SELECT userId, name, email, role, departmentId, staffId FROM Users WHERE userId = ?',
       [userId]
     );
     const user = userRows[0];
@@ -127,7 +158,7 @@ export const login = async (req, res) => {
 
     // Find user by email
     const [users] = await connection.execute(
-      `SELECT userId, name, email, passwordHash, role, departmentId, isActive
+      `SELECT userId, name, email, passwordHash, role, departmentId, staffId, isActive
        FROM Users WHERE email = ? AND isActive = 'YES'`,
       [email]
     );
@@ -156,7 +187,8 @@ export const login = async (req, res) => {
           name: user.name, 
           email: user.email, 
           role: user.role.toLowerCase(), 
-          departmentId: user.departmentId 
+          departmentId: user.departmentId,
+          staffId: user.staffId 
         },
         token,
       },
@@ -184,7 +216,6 @@ export const forgotPassword = async (req, res) => {
       [email]
     );
 
-
     if (users.length === 0) {
       // Don't reveal if user exists for security
       return res.status(200).json({ status: 'success', message: 'If user exists, reset email sent' });
@@ -202,8 +233,6 @@ export const forgotPassword = async (req, res) => {
       'UPDATE Users SET resetToken = ?, resetTokenExpiry = ? WHERE userId = ?',
       [resetToken, resetTokenExpiry, user.userId]
     );
-
-
 
     // Send email
     await sendResetEmail(user.email, resetToken);
@@ -268,28 +297,29 @@ export const resetPassword = async (req, res) => {
 };
 
 export const logout = async (req, res) => {
-  // For JWT, logout is client-side (clear token). Server can blacklist if needed, but for simplicity:
   res.status(200).json({
     status: 'success',
     message: 'Logged out successfully',
   });
 };
 
-// Middleware to protect routes (use in other routes)
+// Middleware to protect routes
 export const protect = async (req, res, next) => {
-  let token;
-  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-    token = req.headers.authorization.split(' ')[1];
-  }
-
-  if (!token) {
-    return res.status(401).json({ status: 'failure', message: 'Not authorized, token required' });
-  }
-
+  let connection;
   try {
+    let token;
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+      token = req.headers.authorization.split(' ')[1];
+    }
+
+    if (!token) {
+      return res.status(401).json({ status: 'failure', message: 'Not authorized, token required' });
+    }
+
     const decoded = jwt.verify(token, JWT_SECRET);
-    const [users] = await pool.execute(
-      'SELECT userId, name, role, email FROM Users WHERE userId = ? AND isActive = "YES"',
+    connection = await pool.getConnection();
+    const [users] = await connection.execute(
+      'SELECT userId, name, role, email, staffId, departmentId FROM Users WHERE userId = ? AND isActive = "YES"',
       [decoded.userId]
     );
     if (users.length === 0) {
@@ -300,5 +330,7 @@ export const protect = async (req, res, next) => {
   } catch (error) {
     console.error('Token verification error:', error);
     res.status(401).json({ status: 'failure', message: 'Invalid token' });
+  } finally {
+    if (connection) connection.release();
   }
 };

@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 // Routes
 import adminRoutes from './routes/admin/adminRoutes.js'; // Your existing
 import authRoutes from './routes/auth/authRoutes.js'; // New
+import departmentRoutes from './routes/departmentRoutes.js'
 
 dotenv.config({ path: './.env' });
 
@@ -22,7 +23,8 @@ app.use(express.urlencoded({ extended: true }));
 
 
 app.use('/api/auth', authRoutes);
-app.use('/api/admin', adminRoutes); // Your existing
+app.use('/api/admin', adminRoutes);
+app.use('/api/departments', departmentRoutes); // Your existing
 
 // Health check
 app.get('/api/health', (req, res) => {

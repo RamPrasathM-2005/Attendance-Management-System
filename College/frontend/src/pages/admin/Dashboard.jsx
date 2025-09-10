@@ -24,23 +24,13 @@ import {
 const AdminDashboard = () => {
   const [scrollPosition, setScrollPosition] = useState(0);
   const [isScrolling, setIsScrolling] = useState(true);
-
-  // Mock data - replace with actual API calls
   const [dashboardData, setDashboardData] = useState({
-    totalSemesters: 8,
-    totalCourses: 45,
-    totalStaff: 23,
-    totalStudents: 1200,
-    recentSemesters: [
-      { id: 1, name: "B.Tech CSE Sem 6", batch: "2022-26", students: 120 },
-      { id: 2, name: "M.Tech AI Sem 2", batch: "2023-25", students: 45 },
-      { id: 3, name: "B.E ECE Sem 4", batch: "2023-27", students: 90 }
-    ],
-    recentCourses: [
-      { id: 1, name: "Data Structures", code: "CS201", staff: "Dr. Smith" },
-      { id: 2, name: "Machine Learning", code: "AI301", staff: "Dr. Johnson" },
-      { id: 3, name: "Digital Electronics", code: "EC202", staff: "Dr. Brown" }
-    ]
+    totalSemesters: 0,
+    totalCourses: 0,
+    totalStaff: 23, // Mock, as no API provided
+    totalStudents: 1200, // Mock, as no full API provided
+    recentSemesters: [],
+    recentCourses: []
   });
 
   // All action options
@@ -60,6 +50,53 @@ const AdminDashboard = () => {
   ];
 
   const navigate = useNavigate();
+
+  // Fetch dynamic data
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch semesters
+        const semestersResponse = await fetch('http://localhost:4000/api/admin/semesters');
+        const semestersData = await semestersResponse.json();
+        const semesters = semestersData.data || [];
+
+        // Sort by startDate descending for recent
+        const sortedSemesters = semesters.sort((a, b) => new Date(b.startDate) - new Date(a.startDate));
+        const recentSemesters = sortedSemesters.slice(0, 3).map(sem => ({
+          id: sem.semesterId,
+          name: `${sem.degree} ${sem.branch} Sem ${sem.semesterNumber}`,
+          batch: sem.batch
+          // Removed students count as per instructions
+        }));
+
+        // Fetch courses
+        const coursesResponse = await fetch('http://localhost:4000/api/admin/courses');
+        const coursesData = await coursesResponse.json();
+        const courses = coursesData.data || [];
+
+        // Assuming array order for recent, take last 3
+        const recentCourses = courses.slice(-3).map(course => ({
+          id: course.courseId,
+          name: course.courseTitle,
+          code: course.courseCode
+          // Removed staff as per instructions
+        }));
+
+        setDashboardData(prev => ({
+          ...prev,
+          totalSemesters: semesters.length,
+          totalCourses: courses.length,
+          recentSemesters,
+          recentCourses
+        }));
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      }
+    };
+
+    fetchData();
+  }, []);
+
   // Auto-scroll effect
   useEffect(() => {
     const interval = setInterval(() => {
@@ -233,12 +270,7 @@ const AdminDashboard = () => {
           <div className="bg-white rounded-lg shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-md font-semibold text-gray-800">Recent Semesters</h4>
-              <button
-                onClick={() => navigateTo("semesters")}
-                className="text-blue-600 hover:text-blue-800 text-xs flex items-center"
-              >
-                View All <ChevronRight className="w-3 h-3 ml-1" />
-              </button>
+              {/* Removed View All */}
             </div>
             <div className="space-y-2">
               {dashboardData.recentSemesters.map((semester) => (
@@ -248,9 +280,7 @@ const AdminDashboard = () => {
                       <p className="font-medium text-gray-800 text-xs">{semester.name}</p>
                       <span className="text-xs text-gray-600">{semester.batch}</span>
                     </div>
-                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
-                      {semester.students}
-                    </span>
+                    {/* Removed right side number */}
                   </div>
                 </div>
               ))}
@@ -259,12 +289,7 @@ const AdminDashboard = () => {
           <div className="bg-white rounded-lg shadow-sm p-4">
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-md font-semibold text-gray-800">Recent Courses</h4>
-              <button
-                onClick={() => navigateTo("manage-courses")}
-                className="text-blue-600 hover:text-blue-800 text-xs flex items-center"
-              >
-                View All <ChevronRight className="w-3 h-3 ml-1" />
-              </button>
+              {/* Removed View All */}
             </div>
             <div className="space-y-2">
               {dashboardData.recentCourses.map((course) => (
@@ -274,7 +299,7 @@ const AdminDashboard = () => {
                       <p className="font-medium text-gray-800 text-xs">{course.name}</p>
                       <span className="text-xs text-blue-600">{course.code}</span>
                     </div>
-                    <span className="text-xs text-gray-600">{course.staff}</span>
+                    {/* Removed right side text/number */}
                   </div>
                 </div>
               ))}

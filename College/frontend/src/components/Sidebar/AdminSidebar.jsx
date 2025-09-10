@@ -1,11 +1,19 @@
 import React, { useState } from 'react';
-import { Home, Book, Users, Calendar, X, Menu, LogOut } from 'lucide-react';
+import { Home, Book, Users, Calendar, X, Menu, LogOut, Settings } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { logout } from '../../services/authService'; // Import logout function
 
 const AdminSidebar = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false); // Added missing state
   const navigate = useNavigate();
+
+  // Mock user data (replace with actual auth context or state management)
+  const currentUser = {
+    name: "Admin User",
+    role: "Administrator",
+    email: "admin@example.com"
+  };
 
   const sidebarItems = [
     { to: "/admin/dashboard", icon: Home, label: "Dashboard" },
@@ -24,6 +32,13 @@ const AdminSidebar = () => {
       console.error('Logout error:', err);
     }
     setIsOpen(false); // Close sidebar on mobile
+    setIsProfileOpen(false); // Close profile dropdown
+  };
+
+  const handleViewProfile = () => {
+    // Implement navigation to profile page or modal
+    console.log("View profile clicked");
+    setIsProfileOpen(false); // Close dropdown after action
   };
 
   return (
@@ -105,7 +120,7 @@ const AdminSidebar = () => {
             className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-gray-700 transition-all duration-200"
           >
             <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-              <User className="w-4 h-4" />
+              <Settings className="w-4 h-4 text-white" /> {/* Using Settings as a placeholder for user icon */}
             </div>
             <div className="flex-1 text-left">
               <p className="text-sm font-medium">{currentUser.name}</p>

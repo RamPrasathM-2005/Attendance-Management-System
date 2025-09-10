@@ -1,9 +1,17 @@
 import React, { useState } from 'react';
-import { Home, Book, Users, Calendar, X, Menu } from 'lucide-react';
+import { Home, Book, Users, Calendar, X, Menu, User, LogOut, Settings } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 
 const AdminSidebar = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  
+  // Mock user data - replace with actual logged-in user data
+  const currentUser = {
+    name: "John Admin",
+    email: "admin@example.com",
+    role: "Administrator"
+  };
 
   const sidebarItems = [
     { to: "/admin/dashboard", icon: Home, label: "Dashboard" },
@@ -13,6 +21,17 @@ const AdminSidebar = () => {
     { to: "/admin/manage-students", icon: Users, label: "Students" },
     { to: "/admin/timetable", icon: Calendar, label: "Timetable" }
   ];
+
+  const handleLogout = () => {
+    window.location.href = '/login';
+  };
+
+  const handleViewProfile = () => {
+    // Add your view profile logic here
+    alert("Opening profile details...");
+    setIsProfileOpen(false);
+    setIsOpen(false);
+  };
 
   return (
     <>
@@ -24,14 +43,24 @@ const AdminSidebar = () => {
         />
       )}
 
+      {/* Profile dropdown overlay for mobile */}
+      {isProfileOpen && (
+        <div 
+          className="fixed inset-0 z-30"
+          onClick={() => setIsProfileOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <div className={`
-        fixed lg:static inset-y-0 left-0 z-50
-        w-64 bg-gray-800 text-white min-h-screen
+        fixed inset-y-0 left-0 z-50
+        w-64 bg-gray-800 text-white
         transform transition-transform duration-300 ease-in-out
         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        flex flex-col
       `}>
-        <div className="flex items-center justify-between p-5 border-b border-gray-700">
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 border-b border-gray-700 flex-shrink-0">
           <h2 className="text-2xl font-bold">Admin Panel</h2>
           <button 
             onClick={() => setIsOpen(false)}
@@ -41,7 +70,8 @@ const AdminSidebar = () => {
           </button>
         </div>
 
-        <nav className="mt-4">
+        {/* Navigation - scrollable area */}
+        <nav className="flex-1 overflow-y-auto py-4">
           <ul className="space-y-2 px-3">
             {sidebarItems.map((item, index) => {
               const Icon = item.icon;
@@ -64,6 +94,48 @@ const AdminSidebar = () => {
             })}
           </ul>
         </nav>
+
+        {/* Profile Section - fixed at bottom */}
+        <div className="border-t border-gray-700 p-3 flex-shrink-0 relative">
+          <button
+            onClick={() => setIsProfileOpen(!isProfileOpen)}
+            className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-gray-700 transition-all duration-200"
+          >
+            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+              <User className="w-4 h-4" />
+            </div>
+            <div className="flex-1 text-left">
+              <p className="text-sm font-medium">{currentUser.name}</p>
+              <p className="text-xs text-gray-400">{currentUser.role}</p>
+            </div>
+          </button>
+
+          {/* Profile Dropdown */}
+          {isProfileOpen && (
+            <div className="absolute bottom-full left-3 right-3 mb-2 bg-gray-700 rounded-lg shadow-lg border border-gray-600 z-40">
+              <div className="p-3 border-b border-gray-600">
+                <p className="text-sm font-medium">{currentUser.name}</p>
+                <p className="text-xs text-gray-400">{currentUser.email}</p>
+              </div>
+              <div className="py-1">
+                <button
+                  onClick={handleViewProfile}
+                  className="w-full flex items-center space-x-3 px-4 py-2 text-left hover:bg-gray-600 transition-colors"
+                >
+                  <Settings className="w-4 h-4" />
+                  <span className="text-sm">View Details</span>
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center space-x-3 px-4 py-2 text-left hover:bg-gray-600 text-red-400 hover:text-red-300 transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span className="text-sm">Logout</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Hamburger button */}

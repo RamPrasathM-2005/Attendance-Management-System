@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Users,
   BookOpen,
@@ -44,20 +45,21 @@ const AdminDashboard = () => {
 
   // All action options
   const allActions = [
-    { name: "Create Semester", icon: <CalendarPlus className="w-4 h-4" />, action: () => navigateTo("create-semester") },
-    { name: "View Semesters", icon: <Eye className="w-4 h-4" />, action: () => navigateTo("semesters") },
-    { name: "Edit Semester", icon: <Edit className="w-4 h-4" />, action: () => navigateTo("edit-semester") },
-    { name: "Create Course", icon: <BookPlus className="w-4 h-4" />, action: () => navigateTo("create-course") },
-    { name: "View Courses", icon: <Eye className="w-4 h-4" />, action: () => navigateTo("courses") },
-    { name: "Allocate Course", icon: <Settings className="w-4 h-4" />, action: () => navigateTo("course-allocation") },
-    { name: "Add Staff", icon: <UserPlus className="w-4 h-4" />, action: () => navigateTo("add-staff") },
-    { name: "View Staff", icon: <Eye className="w-4 h-4" />, action: () => navigateTo("staff") },
-    { name: "Allocate Staff", icon: <UserCog className="w-4 h-4" />, action: () => navigateTo("allocate-staff") },
-    { name: "Add Student", icon: <UserPlus className="w-4 h-4" />, action: () => navigateTo("add-student") },
-    { name: "View Students", icon: <Eye className="w-4 h-4" />, action: () => navigateTo("students") },
-    { name: "Allocate Students", icon: <Settings className="w-4 h-4" />, action: () => navigateTo("allocate-students") }
+    { name: "Create Semester", icon: <CalendarPlus className="w-4 h-4" />, action: () => navigateTo("manage-semesters") },
+    { name: "View Semesters", icon: <Eye className="w-4 h-4" />, action: () => navigateTo("manage-semesters") },
+    { name: "Edit Semester", icon: <Edit className="w-4 h-4" />, action: () => navigateTo("manage-semesters") },
+    { name: "Create Course", icon: <BookPlus className="w-4 h-4" />, action: () => navigateTo("manage-courses") },
+    { name: "View Courses", icon: <Eye className="w-4 h-4" />, action: () => navigateTo("manage-courses") },
+    { name: "Allocate Course", icon: <Settings className="w-4 h-4" />, action: () => navigateTo("manage-courses") },
+    { name: "Add Staff", icon: <UserPlus className="w-4 h-4" />, action: () => navigateTo("manage-staff") },
+    { name: "View Staff", icon: <Eye className="w-4 h-4" />, action: () => navigateTo("manage-staff") },
+    { name: "Allocate Staff", icon: <UserCog className="w-4 h-4" />, action: () => navigateTo("manage-staff") },
+    { name: "Add Student", icon: <UserPlus className="w-4 h-4" />, action: () => navigateTo("manage-students") },
+    { name: "View Students", icon: <Eye className="w-4 h-4" />, action: () => navigateTo("manage-students") },
+    { name: "Allocate Students", icon: <Settings className="w-4 h-4" />, action: () => navigateTo("manage-students") }
   ];
 
+  const navigate = useNavigate();
   // Auto-scroll effect
   useEffect(() => {
     const interval = setInterval(() => {
@@ -78,6 +80,7 @@ const AdminDashboard = () => {
   // Navigation function
   const navigateTo = (page) => {
     console.log(`Navigating to: ${page}`);
+    navigate(`/admin/${page}`);
   };
 
   return (
@@ -181,28 +184,28 @@ const AdminDashboard = () => {
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h3>
           <div className="grid grid-cols-2 gap-3">
             <button
-              onClick={() => navigateTo("create-semester")}
+              onClick={() => navigateTo("manage-semesters")}
               className="flex items-center justify-center p-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <CalendarPlus className="w-5 h-5 mr-2" />
               <span className="text-sm font-medium">New Semester</span>
             </button>
             <button
-              onClick={() => navigateTo("create-course")}
+              onClick={() => navigateTo("manage-courses")}
               className="flex items-center justify-center p-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <BookPlus className="w-5 h-5 mr-2" />
               <span className="text-sm font-medium">New Course</span>
             </button>
             <button
-              onClick={() => navigateTo("allocate-staff")}
+              onClick={() => navigateTo("manage-staff")}
               className="flex items-center justify-center p-4 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors"
             >
               <UserCog className="w-5 h-5 mr-2" />
               <span className="text-sm font-medium">Staff Allocation</span>
             </button>
             <button
-              onClick={() => navigateTo("allocate-students")}
+              onClick={() => navigateTo("manage-students")}
               className="flex items-center justify-center p-4 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
             >
               <UserPlus className="w-5 h-5 mr-2" />

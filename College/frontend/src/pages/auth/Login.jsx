@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { User, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
+import { User, Lock, Eye, EyeOff, ArrowRight, Mail } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { login } from "../../services/authService";
 
@@ -48,7 +48,7 @@ const InputField = ({
 };
 
 const Login = () => {
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState(""); // Changed to email
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -58,11 +58,11 @@ const Login = () => {
 
   const illustrationUrl = "/4583.jpg";
 
-  // Load saved username if "Remember Me" was checked
+  // Load saved email if "Remember Me" was checked
   useEffect(() => {
-    const savedUser = localStorage.getItem("username");
+    const savedUser = localStorage.getItem("username"); // Keep for backward compat
     if (savedUser) {
-      setUsername(savedUser);
+      setEmail(savedUser);
       setRememberMe(true);
     }
   }, []);
@@ -73,21 +73,24 @@ const Login = () => {
     setError("");
 
     try {
-      const user = await login(username, password);
+      const user = await login(email, password);
 
       if (rememberMe) {
-        localStorage.setItem("username", username);
+        localStorage.setItem("username", email);
       } else {
         localStorage.removeItem("username");
       }
 
+      // Role-based redirect
       if (user.role === "admin") {
         navigate("/admin/dashboard");
       } else if (user.role === "staff") {
         navigate("/staff/dashboard");
+      } else {
+        throw new Error("Unknown role");
       }
     } catch (err) {
-      setError(err.response?.data?.message || "Invalid credentials, please try again");
+      setError(err.message || "Invalid credentials, please try again");
     } finally {
       setIsLoading(false);
     }
@@ -140,14 +143,14 @@ const Login = () => {
                 </div>
               )}
 
-              {/* Username */}
+              {/* Email */}
               <InputField
-                label="Username"
-                type="text"
-                icon={User}
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter your username"
+                label="Email"
+                type="email"
+                icon={Mail}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email"
               />
 
               {/* Password */}
@@ -217,19 +220,20 @@ const Login = () => {
             </div>
           </form>
 
-          {/* Demo Credentials */}
+          {/* Demo Credentials - Update for email-based */}
           <div className="mt-6 bg-white/60 backdrop-blur-sm rounded-xl p-4 text-sm text-gray-600 border border-white/50">
             <h4 className="font-semibold mb-2 flex items-center">
               <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-              Demo Credentials
+              Demo Credentials (Use email as username)
             </h4>
             <div className="space-y-1 text-xs">
               <p>
-                <strong>Admin:</strong> admin / admin123
+                <strong>Admin:</strong> admin@example.com / admin123
               </p>
               <p>
-                <strong>Staff:</strong> staff / staff123
+                <strong>Staff:</strong> staff@example.com / staff123
               </p>
+              {/* Note: You need to insert these demo users into DB manually */}
             </div>
           </div>
         </div>

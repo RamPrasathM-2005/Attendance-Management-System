@@ -1,9 +1,9 @@
-// src/utils/auth.js
-
 import { getCurrentUser } from "../services/authService";
 
 export const isAuthenticated = () => {
-  return getCurrentUser() !== null;
+  const user = getCurrentUser();
+  const token = localStorage.getItem('token');
+  return user !== null && token !== null;
 };
 
 export const getUserRole = () => {

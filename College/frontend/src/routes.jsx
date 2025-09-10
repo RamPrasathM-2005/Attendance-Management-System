@@ -10,6 +10,8 @@ import StaffLayout from "./layouts/StaffLayout";
 // Auth Pages
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
+import ForgotPassword from "./pages/auth/ForgotPassword"; // New
+import ResetPassword from "./pages/auth/ResetPassword"; // New
 
 // Admin Pages
 import AdminDashboard from "./pages/admin/Dashboard";
@@ -26,14 +28,10 @@ import MarksAllocation from "./pages/staff/MarksAllocation";
 import Reports from "./pages/staff/Reports";
 import Options from "./pages/staff/Options";
 
-
-
 // NotFound
 import NotFound from "./pages/NotFound";
-import MarkAllocation from "./pages/staff/MarksAllocation";
 
-// Inline ProtectedRoute
-// eslint-disable-next-line react-refresh/only-export-components
+// ProtectedRoute
 const ProtectedRoute = ({ children, role }) => {
   if (!isAuthenticated()) {
     return <Navigate to="/login" replace />;
@@ -53,6 +51,8 @@ const routes = [
   // Auth
   { path: "/login", element: <Login /> },
   { path: "/register", element: <Register /> },
+  { path: "/forgot-password", element: <ForgotPassword /> }, // New
+  { path: "/reset-password/:token", element: <ResetPassword /> }, // New
 
   // Admin Routes
   {
@@ -63,14 +63,14 @@ const routes = [
       </ProtectedRoute>
     ),
     children: [
-      { index: true, element: <AdminDashboard /> }, // /admin default
+      { index: true, element: <AdminDashboard /> },
       { path: "dashboard", element: <AdminDashboard /> },
       { path: "manage-semesters", element: <ManageSemesters /> },
       { path: "manage-courses", element: <ManageCourses /> },
       { path: "manage-staff", element: <ManageStaff /> },
       { path: "manage-students", element: <ManageStudents /> },
       { path: "timetable", element: <Timetable /> },
-      { path: "*", element: <NotFound /> } // catch-all admin
+      { path: "*", element: <NotFound /> }
     ]
   },
 
@@ -90,8 +90,7 @@ const routes = [
       { path: "reports", element: <Reports /> },
       { path: "options/:courseId", element: <Options /> },
       { path: "marks-allocation/:courseId", element: <MarksAllocation /> },
-       { path: "attendance/:courseId", element: <Attendance /> }, 
-      
+      { path: "attendance/:courseId", element: <Attendance /> },
       { path: "*", element: <NotFound /> }
     ]
   },

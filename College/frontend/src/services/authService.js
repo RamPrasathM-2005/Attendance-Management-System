@@ -1,42 +1,84 @@
-// src/services/authService.js
+import axios from 'axios';
 
-// Mock users (for demo purpose)
-const users = [
-  { username: "admin", password: "admin123", role: "admin" },
-  { username: "staff", password: "staff123", role: "staff" },
-];
+const API_BASE = 'http://localhost:4000/api'; // Backend URL (change if PORT=4000)
 
-// Login function
-export const login = (username, password) => {
-  const user = users.find(
-    (u) => u.username === username && u.password === password
-  );
-  if (user) {
-    localStorage.setItem("user", JSON.stringify(user));
+const api = axios.create({
+  baseURL: API_BASE,
+  withCredentials: false,
+});
+
+// Request interceptor for token
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Login
+export const login = async (email, password) => {  // Changed username to email for consistency
+  const response = await api.post('/auth/login', { email, password });
+  if (response.data.status === 'success') {
+    const { user, token } = response.data.data;
+    localStorage.setItem('token', token);
+    localStorage.setItem('user', JSON.stringify(user));
     return user;
   } else {
-    throw new Error("Invalid credentials");
+    throw new Error(response.data.message || 'Login failed');
   }
 };
 
-// Register function (adds to localStorage users mock)
-export const register = (username, password, role) => {
-  const userExists = users.some((u) => u.username === username);
-  if (userExists) {
-    throw new Error("User already exists");
+// Register
+export const register = async (name, email, password, role) => {
+  const response = await api.post('/auth/register', { name, email, password, role: role.toUpperCase() });
+  if (response.data.status === 'success') {
+    const { user, token } = response.data.data;
+    localStorage.setItem('token', token);
+    localStorage.setItem('user', JSON.stringify(user));
+    return user;
+  } else {
+    throw new Error(response.data.message || 'Registration failed');
   }
-  const newUser = { username, password, role };
-  users.push(newUser);
-  localStorage.setItem("user", JSON.stringify(newUser));
-  return newUser;
+};
+
+// Forgot Password
+export const forgotPassword = async (email) => {
+  const response = await api.post('/auth/forgot-password', { email });
+  if (response.data.status !== 'success') {
+    console.log(response.data.status)
+    throw new Error(response.data.message || 'Failed to send email');
+  }
+  return response.data.message;
+};
+
+// Reset Password
+export const resetPassword = async (token, newPassword) => {
+  const response = await api.post(`/auth/reset-password/${token}`, { password: newPassword });
+  if (response.data.status !== 'success') {
+    throw new Error(response.data.message || 'Reset failed');
+  }
+  // Clear localStorage after reset
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  return response.data.message;
 };
 
 // Logout
-export const logout = () => {
-  localStorage.removeItem("user");
+export const logout = async () => {
+  try {
+    await api.post('/auth/logout');
+  } catch (err) {
+    console.error('Logout API error:', err);
+  } finally {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('username'); // Clear remember me
+  }
 };
 
 // Get current user
 export const getCurrentUser = () => {
-  return JSON.parse(localStorage.getItem("user"));
+  const userStr = localStorage.getItem('user');
+  return userStr ? JSON.parse(userStr) : null;
 };

@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { Home, Book, Users, Calendar, X, Menu } from 'lucide-react';
-import { NavLink } from 'react-router-dom';
+import { Home, Book, Users, Calendar, X, Menu, LogOut } from 'lucide-react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { logout } from '../../services/authService'; // Import logout function
 
 const AdminSidebar = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const navigate = useNavigate();
 
   const sidebarItems = [
     { to: "/admin/dashboard", icon: Home, label: "Dashboard" },
@@ -11,8 +13,18 @@ const AdminSidebar = () => {
     { to: "/admin/manage-courses", icon: Book, label: "Courses" },
     { to: "/admin/manage-staff", icon: Users, label: "Staff" },
     { to: "/admin/manage-students", icon: Users, label: "Students" },
-    { to: "/admin/timetable", icon: Calendar, label: "Timetable" }
+    { to: "/admin/timetable", icon: Calendar, label: "Timetable" },
   ];
+
+  const handleLogout = async () => {
+    try {
+      await logout(); // Call logout from authService
+      navigate('/login'); // Redirect to login
+    } catch (err) {
+      console.error('Logout error:', err);
+    }
+    setIsOpen(false); // Close sidebar on mobile
+  };
 
   return (
     <>
@@ -54,7 +66,7 @@ const AdminSidebar = () => {
                       hover:bg-gray-700 hover:text-blue-400 transition-all duration-200
                       ${isActive ? 'bg-gray-700 text-blue-400' : ''}
                     `}
-                    onClick={() => setIsOpen(false)} // close sidebar on mobile link click
+                    onClick={() => setIsOpen(false)}
                   >
                     <Icon className="w-5 h-5" />
                     <span>{item.label}</span>
@@ -62,6 +74,16 @@ const AdminSidebar = () => {
                 </li>
               );
             })}
+            {/* Logout Button */}
+            <li>
+              <button
+                onClick={handleLogout}
+                className="flex items-center space-x-3 px-4 py-3 rounded-lg w-full text-left hover:bg-red-600 hover:text-white transition-all duration-200"
+              >
+                <LogOut className="w-5 h-5" />
+                <span>Logout</span>
+              </button>
+            </li>
           </ul>
         </nav>
       </div>

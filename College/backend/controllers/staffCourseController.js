@@ -55,18 +55,32 @@ export const allocateStaffToCourse = catchAsync(async (req, res) => {
   }
   const { courseCode } = courseRows[0];
 
+
+
   // Validate departmentName and get departmentId
-  const [deptRows] = await pool.execute(
-    `SELECT departmentId FROM Department WHERE departmentName = ? AND isActive = 'YES'`,
-    [departmentName]
-  );
-  if (deptRows.length === 0) {
-    return res.status(404).json({
-      status: "failure",
-      message: `No active department found with departmentName ${departmentName}`,
-    });
-  }
-  const { departmentId } = deptRows[0];
+const [deptRows] = await pool.execute(
+  `SELECT departmentId FROM Department WHERE LOWER(departmentName) LIKE LOWER(?) AND isActive = 'YES'`,
+  [`%${req.body.departmentName}%`]
+);
+if (deptRows.length === 0) {
+  throw new Error(`No active department found with departmentName ${req.body.departmentName}`);
+}
+const { departmentId } = deptRows[0];
+// Proceed with allocation using departmentId
+
+
+  // // Validate departmentName and get departmentId
+  // const [deptRows] = await pool.execute(
+  //   `SELECT departmentId FROM Department WHERE departmentName = ? AND isActive = 'YES'`,
+  //   [departmentName]
+  // );
+  // if (deptRows.length === 0) {
+  //   return res.status(404).json({
+  //     status: "failure",
+  //     message: `No active department found with departmentName ${departmentName}`,
+  //   });
+  // }
+  // const { departmentId } = deptRows[0];
 
   // Validate staffName and get staffId (assuming name is unique per department)
   const [staffRows] = await pool.execute(

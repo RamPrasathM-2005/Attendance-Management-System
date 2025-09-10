@@ -90,7 +90,10 @@ router
    📌 Staff-Course Allocation Routes
    ========================= */
 router.get("/users", getUsers);
-router.post("/courses/:courseId/staff", allocateStaffToCourse); // Allocate staff to a course (Courses page)
+router.post("/courses/:courseId/staff", (req, res, next) => {
+  console.log(`Staff allocation route hit for courseId: ${req.params.courseId} at ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`);
+  allocateStaffToCourse(req, res, next);
+ }); // Allocate staff to a course (Courses page)
 router.post("/staff/:staffId/courses", allocateCourseToStaff); // Allocate course to a staff (Staff page)
 router.put("/staff-courses/:staffCourseId", updateStaffAllocation); // Update a staff-course allocation
 router.get("/courses/:courseId/staff", getStaffAllocationsByCourse); // Get staff allocations for a course

@@ -13,8 +13,7 @@ import {
   Eye,
   Settings,
   GraduationCap,
-  Trash2,
-  Filter
+  Trash2
 } from 'lucide-react';
 import CourseForm from './ManageSemesters/CourseForm';
 import { toast } from 'react-toastify';
@@ -23,12 +22,14 @@ import axios from 'axios';
 const API_BASE = 'http://localhost:4000/api/admin';
 
 // Static mapping for branch to departmentId
-const departmentMap = {
-  'CSE': 1,
-  'ECE': 2,
-  'ME': 3,
-  'CIVIL': 4,
+// At the top, update deptNameMap
+const deptNameMap = { 
+  1: 'Computer Science Engineering',
+  2: 'Electronics and Communication Engineering',
+  3: 'Mechanical Engineering',
+  // Add more based on your DB
 };
+
 
 const ManageCourses = () => {
   const [courses, setCourses] = useState([]);
@@ -39,14 +40,10 @@ const ManageCourses = () => {
   const [error, setError] = useState(null);
 
   // Filters for course filtering
-  const [filters, setFilters] = useState({ dept: '', semester: '', name: '', type: '' }); // Add this state
+  const [filters, setFilters] = useState({ dept: '', semester: '', name: '', type: '' });
 
-  // Filters for staff allocation
-  const [staffFilters, setStaffFilters] = useState({
-    name: '',
-    id: '',
-    dept: ''
-  });
+  // Search for staff allocation
+  const [staffSearch, setStaffSearch] = useState('');
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -59,7 +56,6 @@ const ManageCourses = () => {
   const [selectedSemesterId, setSelectedSemesterId] = useState('');
 
   const [newBatchForm, setNewBatchForm] = useState({ numberOfBatches: 1 });
-  const [allocateStaffForm, setAllocateStaffForm] = useState({ staffId: '' });
 
   const courseTypes = ['THEORY', 'PRACTICAL', 'INTEGRATED', 'PROJECT'];
   const categories = ['BSC', 'ESC', 'PEC', 'OEC', 'EEC', 'HSMC'];
@@ -71,16 +67,14 @@ const ManageCourses = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const semRes = await fetch(API_BASE + '/semesters');
-      const semData = await semRes.json();
-      setSemesters(semData.data || []);
+      const semRes = await axios.get(API_BASE + '/semesters');
+      setSemesters(semRes.data.data || []);
 
-      const courseRes = await fetch(API_BASE + '/courses');
-      const courseData = await courseRes.json();
-      let allCourses = courseData.data || [];
+      const courseRes = await axios.get(API_BASE + '/courses');
+      let allCourses = courseRes.data.data || [];
 
       allCourses = allCourses.map(course => {
-        const semester = semData.data.find(s => s.semesterId === course.semesterId);
+        const semester = semRes.data.data.find(s => s.semesterId === course.semesterId);
         return { ...course, semesterDetails: semester };
       });
 
@@ -88,37 +82,33 @@ const ManageCourses = () => {
       setCourses(allCourses);
 
       const usersRes = await axios.get(`${API_BASE}/users`);
-      let staffData = usersRes.data.data.filter(user => user.role === 'staff' || user.departmentId);
+      let staffData = usersRes.data.data.filter(user => user.departmentId);
       const deptNameMap = { 1: 'Computer Science', 2: 'Electronics', 3: 'Mechanical', 4: 'Civil' };
       staffData = staffData.map(user => ({
-        id: user.id || user.userId,
+        id: user.staffId || user.userId || user.id,
         name: user.name || user.fullName,
-        departmentId: user.departmentId || 1,
-        departmentName: deptNameMap[user.departmentId] || 'Unknown',
+        departmentId: user.departmentId,
+        departmentName: deptNameMap[user.departmentId] || user.departmentName || 'Unknown',
       }));
       const uniqueStaff = staffData.filter((staff, index, self) => 
         index === self.findIndex(s => s.id === staff.id)
       );
       setStaffList(uniqueStaff);
+      toast.success('Fetched all staff successfully');
     } catch (err) {
       setError('Failed to fetch data');
       console.error(err);
+      toast.error('Error fetching data: ' + err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const getFilteredStaffForCourse = (course) => {
-    if (!course || !course.semesterDetails || !course.semesterDetails.branch) return [];
-    const branch = course.semesterDetails.branch;
-    const deptId = departmentMap[branch];
-    if (!deptId) return staffList;
-
-    return staffList.filter(staff => 
-      staff.departmentId === deptId &&
-      staff.name.toLowerCase().includes(staffFilters.name.toLowerCase()) &&
-      staff.id.toLowerCase().includes(staffFilters.id.toLowerCase()) &&
-      (!staffFilters.dept || staff.departmentName.toLowerCase().includes(staffFilters.dept.toLowerCase()))
+  const getFilteredStaff = () => {
+    return staffList.filter(staff =>
+      staff.name.toLowerCase().includes(staffSearch.toLowerCase()) ||
+      staff.id.toLowerCase().includes(staffSearch.toLowerCase()) ||
+      staff.departmentName.toLowerCase().includes(staffSearch.toLowerCase())
     );
   };
 
@@ -149,6 +139,7 @@ const ManageCourses = () => {
       }
     } catch (err) {
       console.error('Error fetching course staff or sections:', err);
+      toast.error('Error fetching course staff');
     }
   };
 
@@ -173,34 +164,121 @@ const ManageCourses = () => {
     }
   };
 
-  const handleAllocateStaff = async (staffId) => {
-    if (!selectedCourse || !selectedBatch || !staffId || !selectedCourse.courseId) return;
 
-    const branch = selectedCourse.semesterDetails?.branch;
-    const deptId = departmentMap[branch];
-    if (!deptId) {
-      toast.error('Department not mapped for this course branch');
-      return;
-    }
 
-    try {
-      const res = await axios.post(`${API_BASE}/courses/${selectedCourse.courseId}/staff`, {
-        staffId,
-        sectionName: selectedBatch,
-        departmentName: staffList.find(s => s.id === staffId)?.departmentName || 'Unknown'
-      });
-      if (res.status === 200 || res.status === 201) {
-        setShowAllocateStaffModal(false);
-        fetchCourseStaff(selectedCourse.courseId);
-        setStaffFilters({ name: '', id: '', dept: '' });
-        toast.success('Staff allocated successfully');
-      } else {
-        toast.error('Failed to allocate staff');
-      }
-    } catch (err) {
-      toast.error('Error allocating staff: ' + (err.response?.data?.message || err.message));
-    }
+// In handleAllocateStaff (around line 184)
+const handleAllocateStaff = async (staffId) => {
+  if (!selectedCourse || !selectedBatch || !staffId || !selectedCourse.courseId) {
+    toast.error('Missing course or batch info');
+    return;
+  }
+
+  const staff = staffList.find(s => s.id === staffId);
+  if (!staff) {
+    toast.error('Staff not found');
+    return;
+  }
+
+  const payload = {
+    staffName: staff.name,
+    sectionName: selectedBatch,
+    departmentName: deptNameMap[staff.departmentId] || staff.departmentName || 'Unknown' // Use full name
   };
+
+  console.log('Request URL:', `${API_BASE}/courses/${selectedCourse.courseId}/staff`);
+  console.log('Payload:', payload);
+  console.log('Course ID:', selectedCourse.courseId);
+  console.log('Staff Data:', staff);
+
+  try {
+    const res = await axios.post(`${API_BASE}/courses/${selectedCourse.courseId}/staff`, payload);
+    console.log('Response:', res.status, res.data);
+    if (res.status === 201) {
+      setShowAllocateStaffModal(false);
+      fetchCourseStaff(selectedCourse.courseId);
+      setStaffSearch('');
+      toast.success('Staff allocated successfully');
+    } else {
+      toast.error('Failed to allocate staff: ' + (res.data?.message || 'Unknown error'));
+    }
+  } catch (err) {
+    console.error('Full error:', err.response);
+    toast.error('Error allocating staff: ' + (err.response?.data?.message || err.message));
+  }
+};
+
+
+
+
+//   const handleAllocateStaff = async (staffId) => {
+//   if (!selectedCourse || !selectedBatch || !staffId || !selectedCourse.courseId) return;
+
+//   const staff = staffList.find(s => s.id === staffId);
+//   if (!staff) {
+//     toast.error('Staff not found');
+//     return;
+//   }
+
+//   try {
+//     console.log('Sending allocation request:', {
+//       url: `${API_BASE}/courses/${selectedCourse.courseId}/staff`,
+//       payload: {
+//         staffName: staff.name,
+//         sectionName: selectedBatch,
+//         departmentName: staff.departmentName.toLowerCase()
+//       }
+//     });
+//     const res = await axios.post(`${API_BASE}/courses/${selectedCourse.courseId}/staff`, {
+//       staffName: staff.name,
+//       sectionName: selectedBatch,
+//       departmentName: staff.departmentName.toLowerCase()
+//     });
+//     if (res.status === 201) {
+//       setShowAllocateStaffModal(false);
+//       fetchCourseStaff(selectedCourse.courseId);
+//       setStaffSearch('');
+//       toast.success('Staff allocated successfully');
+//     } else {
+//       toast.error('Failed to allocate staff: ' + res.data?.message);
+//     }
+//   } catch (err) {
+//     console.error('Allocation error:', err.response?.data || err.message);
+//     toast.error('Error allocating staff: ' + (err.response?.data?.message || err.message));
+//   }
+// };
+
+
+
+
+
+  // const handleAllocateStaff = async (staffId) => {
+  //   if (!selectedCourse || !selectedBatch || !staffId || !selectedCourse.courseId) return;
+
+  //   const staff = staffList.find(s => s.id === staffId);
+  //   if (!staff) {
+  //     toast.error('Staff not found');
+  //     return;
+  //   }
+
+  //   try {
+  //     const res = await axios.post(`${API_BASE}/courses/${selectedCourse.courseId}/staff`, {
+  //       staffName: staff.name,
+  //       sectionName: selectedBatch,
+  //       departmentName: staff.departmentName
+  //     });
+  //     if (res.status === 201) {
+  //       setShowAllocateStaffModal(false);
+  //       fetchCourseStaff(selectedCourse.courseId);
+  //       setStaffSearch('');
+  //       toast.success('Staff allocated successfully');
+  //     } else {
+  //       toast.error('Failed to allocate staff: ' + res.data?.message);
+  //     }
+  //   } catch (err) {
+  //     console.error('Allocation error:', err.response?.data || err.message);
+  //     toast.error('Error allocating staff: ' + (err.response?.data?.message || err.message));
+  //   }
+  // };
 
   const handleDeleteBatch = async (courseCode, sectionName) => {
     if (!confirm(`Delete batch ${sectionName}? This action cannot be undone.`)) return;
@@ -227,16 +305,15 @@ const ManageCourses = () => {
   const handleDeleteCourse = async (courseId) => {
     if (!confirm('Delete this course?')) return;
     try {
-      const res = await fetch(`${API_BASE}/courses/${courseId}`, { method: 'DELETE' });
-      if (res.ok) {
+      const res = await axios.delete(`${API_BASE}/courses/${courseId}`);
+      if (res.status === 200) {
         fetchData();
         toast.success('Course deleted successfully');
       } else {
-        const data = await res.json();
-        toast.error(data.message || 'Failed to delete course');
+        toast.error('Failed to delete course');
       }
     } catch (err) {
-      toast.error('Error deleting course');
+      toast.error('Error deleting course: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -273,7 +350,7 @@ const ManageCourses = () => {
   if (error) return <div className="p-6 text-red-500">{error}</div>;
 
   const filteredCourses = courses.filter(course => {
-    const { dept, semester, name, type } = filters; // Use filters state
+    const { dept, semester, name, type } = filters;
     const semDetails = course.semesterDetails;
     return (
       (!dept || semDetails?.branch === dept) &&
@@ -285,7 +362,7 @@ const ManageCourses = () => {
 
   const displayCourses = Object.keys(filters).some(key => filters[key]) 
     ? filteredCourses 
-    : courses.slice(0, 10);
+    : courses;
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen flex flex-col items-center">
@@ -357,7 +434,7 @@ const ManageCourses = () => {
               onClick={() => setFilters({ dept: '', semester: '', name: '', type: '' })}
               className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg flex items-center gap-1"
             >
-              <Filter size={16} />
+              <Search size={16} />
               Clear
             </button>
           </div>
@@ -523,7 +600,7 @@ const ManageCourses = () => {
                     onChange={(e) => setNewBatchForm({ numberOfBatches: parseInt(e.target.value) || 1 })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     required
-                  />
+                />
                   <p className="text-xs text-gray-500 mt-1">Batches will be auto-generated as Batch1, Batch2, etc.</p>
                 </div>
                 <div className="flex gap-3">
@@ -607,43 +684,22 @@ const ManageCourses = () => {
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">Allocate Staff to {selectedBatch} ({selectedCourse.courseCode})</h2>
-                <button onClick={() => { setShowAllocateStaffModal(false); setStaffFilters({ name: '', id: '', dept: '' }); }} className="text-gray-400 hover:text-gray-600">
+                <button onClick={() => { setShowAllocateStaffModal(false); setStaffSearch(''); }} className="text-gray-400 hover:text-gray-600">
                   <X size={24} />
                 </button>
               </div>
-              <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-                <p className="text-sm text-blue-800">
-                  <strong>Department Filter:</strong> {selectedCourse.semesterDetails?.branch || 'N/A'}
-                </p>
-              </div>
-              {/* Staff Filters */}
-              <div className="mb-4 space-y-2">
+              <div className="mb-4">
                 <input
                   type="text"
-                  placeholder="Filter by name..."
-                  value={staffFilters.name}
-                  onChange={(e) => setStaffFilters({ ...staffFilters, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-                <input
-                  type="text"
-                  placeholder="Filter by ID..."
-                  value={staffFilters.id}
-                  onChange={(e) => setStaffFilters({ ...staffFilters, id: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-                <input
-                  type="text"
-                  placeholder="Filter by department..."
-                  value={staffFilters.dept}
-                  onChange={(e) => setStaffFilters({ ...staffFilters, dept: e.target.value })}
+                  placeholder="Search by name, ID, or department..."
+                  value={staffSearch}
+                  onChange={(e) => setStaffSearch(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-              {/* Staff List */}
               <div className="max-h-64 overflow-y-auto mb-4">
-                {getFilteredStaffForCourse(selectedCourse).length > 0 ? (
-                  getFilteredStaffForCourse(selectedCourse).map(staff => (
+                {getFilteredStaff().length > 0 ? (
+                  getFilteredStaff().map(staff => (
                     <div
                       key={staff.id}
                       onClick={() => handleAllocateStaff(staff.id)}
@@ -654,11 +710,11 @@ const ManageCourses = () => {
                     </div>
                   ))
                 ) : (
-                  <p className="text-gray-500 italic">No staff found matching the filters.</p>
+                  <p className="text-gray-500 italic">No staff found matching the search.</p>
                 )}
               </div>
               <div className="flex gap-3">
-                <button type="button" onClick={() => { setShowAllocateStaffModal(false); setStaffFilters({ name: '', id: '', dept: '' }); }} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+                <button type="button" onClick={() => { setShowAllocateStaffModal(false); setStaffSearch(''); }} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
                   Cancel
                 </button>
               </div>

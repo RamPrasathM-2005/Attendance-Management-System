@@ -1,6 +1,6 @@
-import pool from '../../db.js';
-import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import pool from '../../db.js'; // Adjusted path to match staffCourseController.js
+import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
@@ -28,6 +28,9 @@ const transporter = nodemailer.createTransport({
 
 // Helper to generate JWT token
 const generateToken = (userId, role) => {
+  if (!JWT_SECRET) {
+    throw new Error('JWT_SECRET is not defined');
+  }
   return jwt.sign({ userId, role }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 };
 
@@ -138,7 +141,7 @@ export const register = async (req, res) => {
     });
   } catch (error) {
     if (connection) await connection.rollback();
-    console.error('Register error:', error);
+    console.error('Register error:', error.message);
     res.status(500).json({ status: 'failure', message: 'Registration failed' });
   } finally {
     if (connection) connection.release();
@@ -194,7 +197,7 @@ export const login = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('Login error:', error.message);
     res.status(500).json({ status: 'failure', message: 'Login failed' });
   } finally {
     if (connection) connection.release();
@@ -217,7 +220,6 @@ export const forgotPassword = async (req, res) => {
     );
 
     if (users.length === 0) {
-      // Don't reveal if user exists for security
       return res.status(200).json({ status: 'success', message: 'If user exists, reset email sent' });
     }
 
@@ -242,7 +244,7 @@ export const forgotPassword = async (req, res) => {
       message: 'Password reset email sent',
     });
   } catch (error) {
-    console.error('Forgot password error:', error);
+    console.error('Forgot password error:', error.message);
     res.status(500).json({ status: 'failure', message: 'Failed to send reset email' });
   } finally {
     if (connection) connection.release();
@@ -289,7 +291,7 @@ export const resetPassword = async (req, res) => {
       message: 'Password reset successful',
     });
   } catch (error) {
-    console.error('Reset password error:', error);
+    console.error('Reset password error:', error.message);
     res.status(500).json({ status: 'failure', message: 'Password reset failed' });
   } finally {
     if (connection) connection.release();
@@ -323,12 +325,12 @@ export const protect = async (req, res, next) => {
       [decoded.userId]
     );
     if (users.length === 0) {
-      return res.status(401).json({ status: 'failure', message: 'Invalid token' });
+      return res.status(401).json({ status: 'failure', message: 'Invalid token or user not found' });
     }
     req.user = users[0];
     next();
   } catch (error) {
-    console.error('Token verification error:', error);
+    console.error('Token verification error:', error.message);
     res.status(401).json({ status: 'failure', message: 'Invalid token' });
   } finally {
     if (connection) connection.release();

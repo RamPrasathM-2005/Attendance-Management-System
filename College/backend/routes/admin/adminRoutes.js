@@ -22,6 +22,7 @@ import {
   getCourseAllocationsByStaff,
   deleteStaffAllocation,
   getUsers,
+  getCourseAllocationsByStaffEnhanced
 } from "../../controllers/staffCourseController.js";
 import {
   searchStudents,
@@ -99,6 +100,7 @@ router.put("/staff-courses/:staffCourseId", updateStaffAllocation); // Update a 
 router.get("/courses/:courseId/staff", getStaffAllocationsByCourse); // Get staff allocations for a course
 router.get("/staff/:staffId/courses", getCourseAllocationsByStaff); // Get course allocations for a staff
 router.delete("/staff-courses/:staffCourseId", deleteStaffAllocation); // Delete a staff-course allocation
+router.get("/staff/:staffId/courses-enhanced", getCourseAllocationsByStaffEnhanced);
 
 /* =========================
    📌 Student Allocation Routes

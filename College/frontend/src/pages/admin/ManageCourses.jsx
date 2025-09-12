@@ -1,50 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Plus, 
-  Search, 
-  Edit3, 
-  Users, 
-  UserPlus, 
-  Calendar,
-  BookOpen,
-  ChevronRight,
-  X,
-  Save,
-  Eye,
-  Settings,
-  GraduationCap,
-  Trash2
-} from 'lucide-react';
+import { Plus, Search, Edit3, Users, UserPlus, Calendar, BookOpen, ChevronRight, X, Save, Eye, Settings, GraduationCap, Trash2 } from 'lucide-react';
 import CourseForm from './ManageSemesters/CourseForm';
 import { toast } from 'react-toastify';
 import axios from 'axios';
 
 const API_BASE = 'http://localhost:4000/api/admin';
 
-// Static mapping for branch to departmentId
-// At the top, update deptNameMap
-const deptNameMap = { 
+const deptNameMap = {
   1: 'Computer Science Engineering',
   2: 'Electronics and Communication Engineering',
   3: 'Mechanical Engineering',
-  // Add more based on your DB
 };
-
 
 const ManageCourses = () => {
   const [courses, setCourses] = useState([]);
   const [semesters, setSemesters] = useState([]);
   const [staffList, setStaffList] = useState([]);
   const [sections, setSections] = useState({});
+  const [fetchingSections, setFetchingSections] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  // Filters for course filtering
   const [filters, setFilters] = useState({ dept: '', semester: '', name: '', type: '' });
-
-  // Search for staff allocation
   const [staffSearch, setStaffSearch] = useState('');
-
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAddBatchModal, setShowAddBatchModal] = useState(false);
@@ -54,11 +31,16 @@ const ManageCourses = () => {
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [selectedBatch, setSelectedBatch] = useState(null);
   const [selectedSemesterId, setSelectedSemesterId] = useState('');
-
   const [newBatchForm, setNewBatchForm] = useState({ numberOfBatches: 1 });
 
   const courseTypes = ['THEORY', 'PRACTICAL', 'INTEGRATED', 'PROJECT'];
   const categories = ['BSC', 'ESC', 'PEC', 'OEC', 'EEC', 'HSMC'];
+
+  // Debug state changes
+  useEffect(() => {
+    console.log('Courses state:', courses);
+    console.log('Sections state:', sections);
+  }, [courses, sections]);
 
   useEffect(() => {
     fetchData();
@@ -67,10 +49,10 @@ const ManageCourses = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const semRes = await axios.get(API_BASE + '/semesters');
+      const semRes = await axios.get(`${API_BASE}/semesters`);
       setSemesters(semRes.data.data || []);
 
-      const courseRes = await axios.get(API_BASE + '/courses');
+      const courseRes = await axios.get(`${API_BASE}/courses`);
       let allCourses = courseRes.data.data || [];
 
       allCourses = allCourses.map(course => {
@@ -83,14 +65,13 @@ const ManageCourses = () => {
 
       const usersRes = await axios.get(`${API_BASE}/users`);
       let staffData = usersRes.data.data.filter(user => user.departmentId);
-      const deptNameMap = { 1: 'Computer Science', 2: 'Electronics', 3: 'Mechanical', 4: 'Civil' };
       staffData = staffData.map(user => ({
         id: user.staffId || user.userId || user.id,
         name: user.name || user.fullName,
         departmentId: user.departmentId,
         departmentName: deptNameMap[user.departmentId] || user.departmentName || 'Unknown',
       }));
-      const uniqueStaff = staffData.filter((staff, index, self) => 
+      const uniqueStaff = staffData.filter((staff, index, self) =>
         index === self.findIndex(s => s.id === staff.id)
       );
       setStaffList(uniqueStaff);
@@ -113,191 +94,207 @@ const ManageCourses = () => {
   };
 
   const fetchCourseStaff = async (courseId) => {
+    setFetchingSections(true);
     try {
       const course = courses.find(c => c.courseId === courseId);
-      if (!course) return;
+      if (!course) {
+        toast.error('Course not found');
+        return;
+      }
 
       const sectionRes = await axios.get(`${API_BASE}/courses/${course.courseCode}/sections`);
-      if (sectionRes.data && sectionRes.data.status === 'success') {
-        const batches = sectionRes.data.data.reduce((acc, section) => {
-          acc[section.sectionName] = [];
-          return acc;
-        }, {});
-
-        const staffRes = await axios.get(`${API_BASE}/courses/${courseId}/staff`);
-        if (staffRes.data && staffRes.data.status === 'success') {
-          staffRes.data.data.forEach(alloc => {
-            if (batches[alloc.sectionName]) {
-              if (!batches[alloc.sectionName].some(s => s.staffId === alloc.staffId)) {
-                batches[alloc.sectionName].push(alloc);
-              }
-            }
-          });
-        }
-        setSections(prev => ({ ...prev, [courseId]: batches }));
-        setSelectedCourse(prev => ({ ...prev, allocations: staffRes.data.data || [] }));
+      console.log('Fetched sections for course', course.courseCode, sectionRes.data);
+      if (sectionRes.data?.status !== 'success' || !Array.isArray(sectionRes.data.data)) {
+        toast.error('Failed to fetch sections or invalid response');
+        console.error('Invalid section response:', sectionRes.data);
+        setSections(prev => ({ ...prev, [courseId]: {} }));
+        return;
       }
+
+      const batches = sectionRes.data.data.reduce((acc, section) => {
+        if (section.sectionName) {
+          acc[section.sectionName] = [];
+        }
+        return acc;
+      }, {});
+
+      const staffRes = await axios.get(`${API_BASE}/courses/${courseId}/staff`);
+      console.log('Fetched staff for course', courseId, staffRes.data);
+      if (staffRes.data?.status === 'success' && Array.isArray(staffRes.data.data)) {
+        staffRes.data.data.forEach(alloc => {
+          if (batches[alloc.sectionName]) {
+            batches[alloc.sectionName].push({
+              staffId: alloc.staffId,
+              staffName: alloc.staffName,
+              staffCourseId: alloc.staffCourseId,
+              sectionId: alloc.sectionId,
+              sectionName: alloc.sectionName,
+              departmentId: alloc.departmentId,
+              departmentName: alloc.departmentName,
+            });
+          }
+        });
+      } else {
+        toast.error('Failed to fetch staff allocations or invalid response');
+        console.error('Invalid staff response:', staffRes.data);
+      }
+
+      setSections(prev => ({ ...prev, [courseId]: batches }));
+      setSelectedCourse(prev => ({
+        ...prev,
+        courseId,
+        courseCode: course.courseCode,
+        allocations: staffRes.data.data || [],
+      }));
+      toast.success('Fetched course staff successfully');
     } catch (err) {
-      console.error('Error fetching course staff or sections:', err);
-      toast.error('Error fetching course staff');
+      console.error('Error fetching course staff or sections:', err.response || err);
+      toast.error('Error fetching course staff: ' + (err.response?.data?.message || err.message));
+      setSections(prev => ({ ...prev, [courseId]: {} }));
+    } finally {
+      setFetchingSections(false);
     }
   };
 
-  const handleAddBatch = async (e) => {
-    e.preventDefault();
-    if (!selectedCourse || !newBatchForm.numberOfBatches || !selectedCourse.courseCode) return;
+  const handleAllocateStaff = async (staffId) => {
+    if (!selectedCourse || !selectedBatch || !staffId) {
+      toast.error('Missing course, batch, or staff information');
+      console.error('Missing required inputs:', { selectedCourse, selectedBatch, staffId });
+      return;
+    }
+
+    const staff = staffList.find(s => s.id === staffId);
+    if (!staff || !staff.id || !staff.departmentId) {
+      toast.error('Staff not found or missing required fields');
+      console.error('Staff lookup failed:', { staffId, staffList });
+      return;
+    }
+
+    const currentSections = sections[selectedCourse.courseId] || {};
+    const isStaffAlreadyAllocated = Object.entries(currentSections).some(([sectionName, staffs]) =>
+      sectionName !== selectedBatch && staffs.some(s => s.staffId === staffId)
+    );
+    if (isStaffAlreadyAllocated) {
+      toast.error(`Staff ${staff.name} is already allocated to another batch for course ${selectedCourse.courseCode}`);
+      return;
+    }
+
+    let sectionId = null;
+    try {
+      const sectionRes = await axios.get(`${API_BASE}/courses/${selectedCourse.courseCode}/sections`);
+      console.log('Sections API response:', sectionRes.data);
+      if (sectionRes.data?.status !== 'success' || !Array.isArray(sectionRes.data.data)) {
+        toast.error('Failed to fetch sections');
+        console.error('Section API response:', sectionRes.data);
+        return;
+      }
+      const matchingSection = sectionRes.data.data.find(s => s.sectionName === selectedBatch);
+      if (!matchingSection || !matchingSection.sectionId) {
+        toast.error(`Section ${selectedBatch} not found for course ${selectedCourse.courseCode}`);
+        console.error('Section not found:', { selectedBatch, sections: sectionRes.data.data });
+        return;
+      }
+      sectionId = matchingSection.sectionId;
+    } catch (err) {
+      console.error('Error fetching sections:', err.response || err);
+      toast.error('Error fetching section ID: ' + (err.response?.data?.message || err.message));
+      return;
+    }
+
+    const payload = {
+      staffId: staff.id,
+      courseCode: selectedCourse.courseCode,
+      sectionId,
+      departmentId: staff.departmentId,
+    };
+
+    if (!payload.staffId || !payload.courseCode || !payload.sectionId || !payload.departmentId) {
+      toast.error('Invalid payload: missing required fields');
+      console.error('Invalid payload:', payload);
+      return;
+    }
+
+    console.log('Allocation payload:', payload);
 
     try {
-      const res = await axios.post(`${API_BASE}/courses/${selectedCourse.courseCode}/sections`, { 
-        numberOfSections: newBatchForm.numberOfBatches 
-      });
-      if (res.status === 200 || res.status === 201) {
-        setShowAddBatchModal(false);
-        fetchCourseStaff(selectedCourse.courseId);
-        setNewBatchForm({ numberOfBatches: 1 });
-        toast.success('Batches added successfully');
+      const res = await axios.post(`${API_BASE}/courses/${selectedCourse.courseId}/staff`, payload);
+      if (res.status === 201) {
+        setShowAllocateStaffModal(false);
+        setStaffSearch('');
+        await fetchCourseStaff(selectedCourse.courseId);
+        setShowCourseDetailsModal(true);
+        toast.success('Staff allocated successfully');
       } else {
-        toast.error('Failed to add batches');
+        toast.error('Failed to allocate staff: ' + (res.data?.message || 'Unknown error'));
+        console.error('Allocation failed:', res.data);
       }
     } catch (err) {
-      toast.error('Error adding batches: ' + (err.response?.data?.message || err.message));
+      console.error('Error allocating staff:', err.response || err);
+      toast.error('Error allocating staff: ' + (err.response?.data?.message || err.message));
     }
   };
-
-
-
-// In handleAllocateStaff (around line 184)
-const handleAllocateStaff = async (staffId) => {
-  if (!selectedCourse || !selectedBatch || !staffId || !selectedCourse.courseId) {
-    toast.error('Missing course or batch info');
-    return;
-  }
-
-  const staff = staffList.find(s => s.id === staffId);
-  if (!staff) {
-    toast.error('Staff not found');
-    return;
-  }
-
-  const payload = {
-    staffName: staff.name,
-    sectionName: selectedBatch,
-    departmentName: deptNameMap[staff.departmentId] || staff.departmentName || 'Unknown' // Use full name
-  };
-
-  console.log('Request URL:', `${API_BASE}/courses/${selectedCourse.courseId}/staff`);
-  console.log('Payload:', payload);
-  console.log('Course ID:', selectedCourse.courseId);
-  console.log('Staff Data:', staff);
-
-  try {
-    const res = await axios.post(`${API_BASE}/courses/${selectedCourse.courseId}/staff`, payload);
-    console.log('Response:', res.status, res.data);
-    if (res.status === 201) {
-      setShowAllocateStaffModal(false);
-      fetchCourseStaff(selectedCourse.courseId);
-      setStaffSearch('');
-      toast.success('Staff allocated successfully');
-    } else {
-      toast.error('Failed to allocate staff: ' + (res.data?.message || 'Unknown error'));
-    }
-  } catch (err) {
-    console.error('Full error:', err.response);
-    toast.error('Error allocating staff: ' + (err.response?.data?.message || err.message));
-  }
-};
-
-
-
-
-//   const handleAllocateStaff = async (staffId) => {
-//   if (!selectedCourse || !selectedBatch || !staffId || !selectedCourse.courseId) return;
-
-//   const staff = staffList.find(s => s.id === staffId);
-//   if (!staff) {
-//     toast.error('Staff not found');
-//     return;
-//   }
-
-//   try {
-//     console.log('Sending allocation request:', {
-//       url: `${API_BASE}/courses/${selectedCourse.courseId}/staff`,
-//       payload: {
-//         staffName: staff.name,
-//         sectionName: selectedBatch,
-//         departmentName: staff.departmentName.toLowerCase()
-//       }
-//     });
-//     const res = await axios.post(`${API_BASE}/courses/${selectedCourse.courseId}/staff`, {
-//       staffName: staff.name,
-//       sectionName: selectedBatch,
-//       departmentName: staff.departmentName.toLowerCase()
-//     });
-//     if (res.status === 201) {
-//       setShowAllocateStaffModal(false);
-//       fetchCourseStaff(selectedCourse.courseId);
-//       setStaffSearch('');
-//       toast.success('Staff allocated successfully');
-//     } else {
-//       toast.error('Failed to allocate staff: ' + res.data?.message);
-//     }
-//   } catch (err) {
-//     console.error('Allocation error:', err.response?.data || err.message);
-//     toast.error('Error allocating staff: ' + (err.response?.data?.message || err.message));
-//   }
-// };
-
-
-
-
-
-  // const handleAllocateStaff = async (staffId) => {
-  //   if (!selectedCourse || !selectedBatch || !staffId || !selectedCourse.courseId) return;
-
-  //   const staff = staffList.find(s => s.id === staffId);
-  //   if (!staff) {
-  //     toast.error('Staff not found');
-  //     return;
-  //   }
-
-  //   try {
-  //     const res = await axios.post(`${API_BASE}/courses/${selectedCourse.courseId}/staff`, {
-  //       staffName: staff.name,
-  //       sectionName: selectedBatch,
-  //       departmentName: staff.departmentName
-  //     });
-  //     if (res.status === 201) {
-  //       setShowAllocateStaffModal(false);
-  //       fetchCourseStaff(selectedCourse.courseId);
-  //       setStaffSearch('');
-  //       toast.success('Staff allocated successfully');
-  //     } else {
-  //       toast.error('Failed to allocate staff: ' + res.data?.message);
-  //     }
-  //   } catch (err) {
-  //     console.error('Allocation error:', err.response?.data || err.message);
-  //     toast.error('Error allocating staff: ' + (err.response?.data?.message || err.message));
-  //   }
-  // };
 
   const handleDeleteBatch = async (courseCode, sectionName) => {
+    if (!courseCode || !sectionName) {
+      toast.error('Missing course or section info');
+      return;
+    }
     if (!confirm(`Delete batch ${sectionName}? This action cannot be undone.`)) return;
 
     try {
       const res = await axios.delete(`${API_BASE}/courses/${courseCode}/sections/${sectionName}`);
       if (res.status === 200) {
-        fetchCourseStaff(selectedCourse.courseId);
-        toast.success(`Batch ${sectionName} deleted successfully`);
+        console.log(`Deleted batch ${sectionName} for course ${courseCode}`);
+        await fetchCourseStaff(selectedCourse.courseId); // Refresh sections
+        setSections(prev => {
+          const updatedSections = { ...prev[selectedCourse.courseId] };
+          delete updatedSections[sectionName]; // Remove deleted batch
+          return { ...prev, [selectedCourse.courseId]: updatedSections };
+        });
+        setShowCourseDetailsModal(true);
+        toast.success('Batch deleted successfully');
       } else {
-        toast.error('Failed to delete batch');
+        toast.error('Failed to delete batch: ' + (res.data?.message || 'Unknown error'));
       }
     } catch (err) {
+      console.error('Error deleting batch:', err.response || err);
       toast.error('Error deleting batch: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const handleDeleteStaff = async (staffCourseId) => {
+    if (!confirm('Remove this staff from the batch?')) return;
+
+    try {
+      const res = await axios.delete(`${API_BASE}/staff-courses/${staffCourseId}`);
+      if (res.status === 200) {
+        await fetchCourseStaff(selectedCourse.courseId);
+        setShowCourseDetailsModal(true);
+        toast.success('Staff removed successfully');
+      } else {
+        toast.error('Failed to remove staff');
+      }
+    } catch (err) {
+      toast.error('Error removing staff: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const handleEditStaff = (staffCourseId) => {
+    const allocation = selectedCourse.allocations.find(a => a.staffCourseId === staffCourseId);
+    if (allocation) {
+      setSelectedBatch(allocation.sectionName);
+      setStaffSearch(allocation.staffName);
+      setShowAllocateStaffModal(true);
+      setShowCourseDetailsModal(false);
     }
   };
 
   const handleCourseClick = (course) => {
     setSelectedCourse(course);
+    setSections(prev => ({
+      ...prev,
+      [course.courseId]: prev[course.courseId] || {},
+    }));
     setShowCourseDetailsModal(true);
     fetchCourseStaff(course.courseId);
   };
@@ -307,7 +304,7 @@ const handleAllocateStaff = async (staffId) => {
     try {
       const res = await axios.delete(`${API_BASE}/courses/${courseId}`);
       if (res.status === 200) {
-        fetchData();
+        await fetchData();
         toast.success('Course deleted successfully');
       } else {
         toast.error('Failed to delete course');
@@ -322,7 +319,7 @@ const handleAllocateStaff = async (staffId) => {
       'THEORY': 'bg-blue-100 text-blue-800',
       'PRACTICAL': 'bg-green-100 text-green-800',
       'INTEGRATED': 'bg-purple-100 text-purple-800',
-      'PROJECT': 'bg-orange-100 text-orange-800'
+      'PROJECT': 'bg-orange-100 text-orange-800',
     };
     return colors[type] || 'bg-gray-100 text-gray-800';
   };
@@ -339,6 +336,36 @@ const handleAllocateStaff = async (staffId) => {
     }
     setShowCreateModal(false);
     setShowCourseForm(true);
+  };
+
+  const handleAddBatch = async (e) => {
+    e.preventDefault();
+    if (!selectedCourse || !newBatchForm.numberOfBatches) {
+      toast.error('Missing course or number of batches');
+      return;
+    }
+    const numberOfBatches = parseInt(newBatchForm.numberOfBatches) || 1;
+    console.log('Adding batches:', { courseCode: selectedCourse.courseCode, numberOfBatches });
+    
+    try {
+      const res = await axios.post(`${API_BASE}/courses/${selectedCourse.courseCode}/sections`, {
+        numberOfSections: numberOfBatches,
+      });
+      console.log('Batch addition response:', res.data);
+      if (res.status === 201) {
+        setShowAddBatchModal(false);
+        setNewBatchForm({ numberOfBatches: 1 });
+        await fetchCourseStaff(selectedCourse.courseId);
+        setShowCourseDetailsModal(true);
+        toast.success(`Added ${numberOfBatches} batch${numberOfBatches > 1 ? 'es' : ''} successfully`);
+      } else {
+        toast.error('Failed to add batches: ' + (res.data?.message || 'Unknown error'));
+        console.error('Batch addition failed:', res.data);
+      }
+    } catch (err) {
+      console.error('Error adding batches:', err.response || err);
+      toast.error('Error adding batches: ' + (err.response?.data?.message || err.message));
+    }
   };
 
   const openEditModal = (course) => {
@@ -360,8 +387,8 @@ const handleAllocateStaff = async (staffId) => {
     );
   });
 
-  const displayCourses = Object.keys(filters).some(key => filters[key]) 
-    ? filteredCourses 
+  const displayCourses = Object.keys(filters).some(key => filters[key])
+    ? filteredCourses
     : courses;
 
   return (
@@ -538,13 +565,13 @@ const handleAllocateStaff = async (staffId) => {
                 </select>
               </div>
               <div className="flex gap-3">
-                <button 
-                  onClick={() => setShowCreateModal(false)} 
+                <button
+                  onClick={() => setShowCreateModal(false)}
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   onClick={handleNextToForm}
                   className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
                   disabled={!selectedSemesterId}
@@ -558,11 +585,12 @@ const handleAllocateStaff = async (staffId) => {
       )}
 
       {showCourseForm && (
-        <CourseForm 
+        <CourseForm
           isOpen={showCourseForm}
           onClose={() => {
             setShowCourseForm(false);
             setSelectedSemesterId('');
+            fetchData();
           }}
           semesterId={selectedSemesterId}
           course={null}
@@ -571,9 +599,12 @@ const handleAllocateStaff = async (staffId) => {
       )}
 
       {showEditModal && selectedCourse && (
-        <CourseForm 
-          isOpen={showEditModal} 
-          onClose={() => setShowEditModal(false)} 
+        <CourseForm
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false);
+            fetchData();
+          }}
           semesterId={selectedCourse.semesterId}
           course={selectedCourse}
           onRefresh={fetchData}
@@ -600,7 +631,7 @@ const handleAllocateStaff = async (staffId) => {
                     onChange={(e) => setNewBatchForm({ numberOfBatches: parseInt(e.target.value) || 1 })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     required
-                />
+                  />
                   <p className="text-xs text-gray-500 mt-1">Batches will be auto-generated as Batch1, Batch2, etc.</p>
                 </div>
                 <div className="flex gap-3">
@@ -623,54 +654,115 @@ const handleAllocateStaff = async (staffId) => {
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">{selectedCourse.courseCode} - {selectedCourse.courseTitle}</h2>
-                <button onClick={() => { setShowCourseDetailsModal(false); setSelectedCourse(null); }} className="text-gray-400 hover:text-gray-600">
+                <button
+                  onClick={() => {
+                    setShowCourseDetailsModal(false);
+                    setSelectedCourse(null);
+                    setSections(prev => ({ ...prev, [selectedCourse.courseId]: {} }));
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
                   <X size={24} />
                 </button>
               </div>
               <div className="grid grid-cols-2 gap-3 mb-6">
                 <button
-                  onClick={() => { openEditModal(selectedCourse); setShowCourseDetailsModal(false); }}
+                  onClick={() => {
+                    openEditModal(selectedCourse);
+                    setShowCourseDetailsModal(false);
+                  }}
                   className="bg-orange-50 hover:bg-orange-100 text-orange-600 px-4 py-3 rounded-lg flex items-center justify-center gap-2"
                 >
                   <Edit3 size={16} />
                   Edit Course
                 </button>
                 <button
-                  onClick={() => { setShowAddBatchModal(true); setShowCourseDetailsModal(false); }}
+                  onClick={() => {
+                    setShowAddBatchModal(true);
+                    setShowCourseDetailsModal(false);
+                  }}
                   className="bg-purple-50 hover:bg-purple-100 text-purple-600 px-4 py-3 rounded-lg flex items-center justify-center gap-2"
                 >
                   <Plus size={16} />
                   Add Batch
                 </button>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Batches ({Object.keys(sections[selectedCourse.courseId] || {}).length})</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Batches ({sections[selectedCourse.courseId] ? Object.keys(sections[selectedCourse.courseId]).length : 0})
+              </h3>
               <div className="space-y-3 max-h-64 overflow-y-auto">
-                {Object.entries(sections[selectedCourse.courseId] || {}).map(([batchName, staffs]) => (
-                  <div key={batchName} className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 flex justify-between items-center">
-                    <div onClick={() => { setSelectedBatch(batchName); setShowAllocateStaffModal(true); setShowCourseDetailsModal(false); }} className="cursor-pointer flex-1">
-                      <div className="flex justify-between items-center">
-                        <h4 className="font-medium text-gray-900">{batchName}</h4>
-                        <span className="text-sm text-gray-500">{staffs.length} Staff Assigned</span>
+                {fetchingSections ? (
+                  <p className="text-gray-500 italic">Loading batches...</p>
+                ) : !sections[selectedCourse.courseId] || Object.keys(sections[selectedCourse.courseId]).length === 0 ? (
+                  <p className="text-gray-500 italic">No batches available. Add batches to get started.</p>
+                ) : (
+                  Object.entries(sections[selectedCourse.courseId]).map(([sectionName, staffs]) => (
+                    <div key={sectionName} className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 flex justify-between items-center">
+                      <div className="flex-1">
+                        <div className="flex justify-between items-center">
+                          <h4 className="font-medium text-gray-900">{sectionName}</h4>
+                          <span className="text-sm text-gray-500">{staffs ? staffs.length : 0} Staff Assigned</span>
+                        </div>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {staffs && staffs.length > 0 ? (
+                            staffs.map(staff => (
+                              <span key={staff.staffId} className="text-xs bg-white px-2 py-1 rounded-full border text-gray-700">
+                                {staff.staffName || staff.name || 'Unknown'}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-xs text-gray-500">No staff assigned</span>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {staffs.map(staff => (
-                          <span key={staff.staffId} className="text-xs bg-white px-2 py-1 rounded-full border text-gray-700">
-                            {staff.staffName || staff.name}
-                          </span>
-                        ))}
+                      <div className="flex gap-2">
+                        {staffs && staffs.length > 0 && (
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditStaff(staffs[0].staffCourseId);
+                              }}
+                              className="bg-yellow-50 hover:bg-yellow-100 text-yellow-600 px-2 py-1 rounded-lg text-sm font-medium transition-colors flex items-center gap-1"
+                            >
+                              <Edit3 size={14} />
+                              Edit
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteStaff(staffs[0].staffCourseId);
+                              }}
+                              className="bg-red-50 hover:bg-red-100 text-red-600 px-2 py-1 rounded-lg text-sm font-medium transition-colors flex items-center gap-1"
+                            >
+                              <Trash2 size={14} />
+                              Remove
+                            </button>
+                          </>
+                        )}
+                        {(!staffs || staffs.length === 0) && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedBatch(sectionName);
+                              setShowAllocateStaffModal(true);
+                              setShowCourseDetailsModal(false);
+                            }}
+                            className="bg-green-50 hover:bg-green-100 text-green-600 px-2 py-1 rounded-lg text-sm font-medium transition-colors flex items-center gap-1"
+                          >
+                            <UserPlus size={14} />
+                            Allocate Staff
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDeleteBatch(selectedCourse.courseCode, sectionName)}
+                          className="ml-2 text-red-500 hover:text-red-700"
+                        >
+                          Delete Batch
+                        </button>
                       </div>
                     </div>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleDeleteBatch(selectedCourse.courseCode, batchName); }}
-                      className="bg-red-50 hover:bg-red-100 text-red-600 px-2 py-1 rounded-lg text-sm font-medium transition-colors flex items-center gap-1 ml-2"
-                    >
-                      <Trash2 size={14} />
-                      Delete
-                    </button>
-                  </div>
-                ))}
-                {Object.keys(sections[selectedCourse.courseId] || {}).length === 0 && (
-                  <p className="text-gray-500 italic">No batches available. Add batches to get started.</p>
+                  ))
                 )}
               </div>
             </div>
@@ -684,7 +776,14 @@ const handleAllocateStaff = async (staffId) => {
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">Allocate Staff to {selectedBatch} ({selectedCourse.courseCode})</h2>
-                <button onClick={() => { setShowAllocateStaffModal(false); setStaffSearch(''); }} className="text-gray-400 hover:text-gray-600">
+                <button
+                  onClick={() => {
+                    setShowAllocateStaffModal(false);
+                    setStaffSearch('');
+                    setShowCourseDetailsModal(true);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
                   <X size={24} />
                 </button>
               </div>
@@ -714,7 +813,15 @@ const handleAllocateStaff = async (staffId) => {
                 )}
               </div>
               <div className="flex gap-3">
-                <button type="button" onClick={() => { setShowAllocateStaffModal(false); setStaffSearch(''); }} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAllocateStaffModal(false);
+                    setStaffSearch('');
+                    setShowCourseDetailsModal(true);
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
                   Cancel
                 </button>
               </div>

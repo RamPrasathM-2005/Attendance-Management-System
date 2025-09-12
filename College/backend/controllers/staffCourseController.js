@@ -330,6 +330,79 @@ export const getCourseAllocationsByStaff = catchAsync(async (req, res) => {
   });
 });
 
+
+export const getCourseAllocationsByStaffEnhanced = catchAsync(async (req, res) => {
+  const { staffId } = req.params;
+
+  if (!req.user || !req.user.staffId || !req.user.departmentId) {
+    return res.status(401).json({
+      status: 'failure',
+      message: 'User authentication data missing. Please log in again.',
+    });
+  }
+
+  const { staffId: authenticatedStaffId, departmentId } = req.user;
+
+  if (staffId !== authenticatedStaffId) {
+    return res.status(403).json({
+      status: 'failure',
+      message: 'Unauthorized to access courses for another staff',
+    });
+  }
+
+  const [staffRows] = await pool.execute(
+    `SELECT userId, departmentId FROM Users WHERE staffId = ? AND role = 'STAFF' AND isActive = 'YES'`,
+    [staffId]
+  );
+  if (staffRows.length === 0) {
+    return res.status(404).json({
+      status: 'failure',
+      message: `No active staff found with staffId ${staffId}`,
+    });
+  }
+  const { departmentId: fetchedDepartmentId } = staffRows[0];
+
+  if (departmentId !== fetchedDepartmentId) {
+    return res.status(403).json({
+      status: 'failure',
+      message: 'Department mismatch for the authenticated staff',
+    });
+  }
+
+  const [rows] = await pool.execute(
+    `SELECT 
+       sc.staffCourseId, 
+       sc.staffId, 
+       sc.courseCode AS id, 
+       c.courseTitle AS title, 
+       sc.sectionId, 
+       s.sectionName,
+       sc.departmentId, 
+       d.departmentName,
+       CONCAT(b.batchYears, ' ', CASE WHEN sem.semesterNumber % 2 = 1 THEN 'ODD' ELSE 'EVEN' END, ' SEMESTER') AS semester,
+       b.degree,
+       b.branch,
+       b.batch,
+       c.createdAt AS lastAccessed
+     FROM StaffCourse sc
+     JOIN Course c ON sc.courseCode = c.courseCode
+     JOIN Section s ON sc.sectionId = s.sectionId
+     JOIN Department d ON sc.departmentId = d.departmentId
+     JOIN Semester sem ON c.semesterId = sem.semesterId
+     JOIN Batch b ON sem.batchId = b.batchId
+     WHERE sc.staffId = ? AND sc.departmentId = ? 
+       AND c.isActive = 'YES' AND s.isActive = 'YES' AND d.isActive = 'YES'
+       AND sem.startDate <= CURDATE() AND sem.endDate >= CURDATE()`,
+    [staffId, departmentId]
+  );
+
+  res.status(200).json({
+    status: 'success',
+    data: rows,
+  });
+});
+
+
 export const deleteStaffAllocation = catchAsync(async (req, res) => {
   const { staffCourseId } = req.params;
 

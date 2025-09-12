@@ -177,3 +177,27 @@ export const deleteStudent = catchAsync(async (req, res) => {
     message: `Student with roll number ${rollnumber} deleted successfully`,
   });
 });
+
+export const getStudentEnrolledCourses = catchAsync(async (req, res) => {
+  const { rollnumber } = req.params;
+
+  const [rows] = await pool.execute(
+    `SELECT 
+      sc.courseCode, 
+      c.courseTitle as courseName, 
+      sec.sectionName as batch, 
+      u.name as staff
+     FROM StudentCourse sc
+     JOIN Course c ON sc.courseCode = c.courseCode
+     JOIN Section sec ON sc.sectionId = sec.sectionId
+     LEFT JOIN StaffCourse stc ON stc.courseCode = sc.courseCode AND stc.sectionId = sc.sectionId
+     LEFT JOIN Users u ON stc.staffId = u.staffId AND stc.departmentId = u.departmentId
+     WHERE sc.rollnumber = ?`,
+    [rollnumber]
+  );
+
+  res.status(200).json({
+    status: "success",
+    data: rows
+  });
+});

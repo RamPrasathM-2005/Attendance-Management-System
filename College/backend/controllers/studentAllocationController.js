@@ -246,3 +246,70 @@ export const updateStudentBatch = catchAsync(async (req, res) => {
     connection.release();
   }
 });
+
+export const getAvailableCoursesForBatch = catchAsync(async (req, res) => {
+  const { batchId, semesterNumber } = req.params;
+
+  // Validate parameters
+  if (!batchId || isNaN(batchId) || !semesterNumber || isNaN(semesterNumber) || semesterNumber < 1 || semesterNumber > 8) {
+    return res.status(400).json({
+      status: "error",
+      message: "Valid batchId and semesterNumber (1-8) are required",
+    });
+  }
+
+  try {
+    const [rows] = await pool.execute(
+      `SELECT 
+        c.courseId, c.courseCode, c.courseTitle,
+        sem.semesterNumber,
+        sec.sectionId, sec.sectionName,
+        u.staffId, u.name as staffName,
+        b.branch as department,
+        (SELECT COUNT(DISTINCT sc2.rollnumber) 
+         FROM StudentCourse sc2 
+         WHERE sc2.courseCode = c.courseCode AND sc2.sectionId = sec.sectionId) as enrolled
+       FROM Course c
+       JOIN Semester sem ON c.semesterId = sem.semesterId
+       JOIN Batch b ON sem.batchId = b.batchId
+       JOIN Section sec ON c.courseCode = sec.courseCode
+       LEFT JOIN StaffCourse sc ON sc.courseCode = c.courseCode AND sc.sectionId = sec.sectionId
+       LEFT JOIN Users u ON sc.staffId = u.staffId AND sc.departmentId = u.departmentId
+       WHERE sem.batchId = ? AND sem.semesterNumber = ? AND c.isActive = 'YES' AND sec.isActive = 'YES'`,
+      [batchId, semesterNumber]
+    );
+
+    // Group by course
+    const grouped = rows.reduce((acc, row) => {
+      if (!acc[row.courseCode]) {
+        acc[row.courseCode] = {
+          courseId: row.courseId,
+          courseCode: row.courseCode,
+          courseName: row.courseTitle,
+          semester: `S${row.semesterNumber}`,
+          department: row.department,
+          batches: [],
+        };
+      }
+      acc[row.courseCode].batches.push({
+        batchId: row.sectionName,
+        staffId: row.staffId,
+        staff: row.staffName || "Not Assigned",
+        enrolled: parseInt(row.enrolled) || 0,
+        capacity: 40, // Hardcoded as per frontend sample
+      });
+      return acc;
+    }, {});
+
+    res.status(200).json({
+      status: "success",
+      data: Object.values(grouped),
+    });
+  } catch (error) {
+    console.error(`Error fetching available courses for batchId ${batchId}, semester ${semesterNumber}:`, error);
+    res.status(500).json({
+      status: "error",
+      message: "Internal server error while fetching available courses",
+    });
+  }
+});

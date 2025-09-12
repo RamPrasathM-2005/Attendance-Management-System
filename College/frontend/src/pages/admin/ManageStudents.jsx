@@ -1,115 +1,123 @@
-import React, { useState, useEffect } from 'react';
-import { Search, Filter, Users, BookOpen, UserPlus, Eye, ChevronRight, X } from 'lucide-react';
+// ManageStudents.jsx
+import React, { useState, useEffect } from "react";
+import { Search, Filter, Users, BookOpen, UserPlus, Eye, ChevronRight, X, Edit3, Save } from "lucide-react";
+
+const API_BASE = "http://localhost:4000/api/admin";
 
 const ManageStudents = () => {
-  // Sample data - replace with actual API calls
-  const [students, setStudents] = useState([
-    {
-      id: 1,
-      rollNo: 'CS21001',
-      name: 'John Doe',
-      email: 'john.doe@college.edu',
-      phone: '+91 9876543210',
-      department: 'Computer Science',
-      semester: 'S5',
-      batch: 'A',
-      enrolledCourses: [
-        { courseId: 'CS501', courseName: 'Data Structures', batch: 'A', staff: 'Dr. Smith' },
-        { courseId: 'CS502', courseName: 'Database Systems', batch: 'B', staff: 'Prof. Johnson' }
-      ]
-    },
-    {
-      id: 2,
-      rollNo: 'CS21002',
-      name: 'Jane Smith',
-      email: 'jane.smith@college.edu',
-      phone: '+91 9876543211',
-      department: 'Computer Science',
-      semester: 'S5',
-      batch: 'B',
-      enrolledCourses: [
-        { courseId: 'CS501', courseName: 'Data Structures', batch: 'B', staff: 'Dr. Wilson' }
-      ]
-    },
-    {
-      id: 3,
-      rollNo: 'EC21001',
-      name: 'Mike Johnson',
-      email: 'mike.johnson@college.edu',
-      phone: '+91 9876543212',
-      department: 'Electronics',
-      semester: 'S3',
-      batch: 'A',
-      enrolledCourses: []
-    }
-  ]);
-
-  const [availableCourses, setAvailableCourses] = useState([
-    {
-      courseId: 'CS501',
-      courseName: 'Data Structures',
-      semester: 'S5',
-      department: 'Computer Science',
-      batches: [
-        { batchId: 'A', staff: 'Dr. Smith', enrolled: 35, capacity: 40 },
-        { batchId: 'B', staff: 'Dr. Wilson', enrolled: 32, capacity: 40 },
-        { batchId: 'C', staff: 'Prof. Davis', enrolled: 28, capacity: 40 }
-      ]
-    },
-    {
-      courseId: 'CS502',
-      courseName: 'Database Systems',
-      semester: 'S5',
-      department: 'Computer Science',
-      batches: [
-        { batchId: 'A', staff: 'Prof. Johnson', enrolled: 38, capacity: 40 },
-        { batchId: 'B', staff: 'Dr. Brown', enrolled: 30, capacity: 40 },
-        { batchId: 'C', staff: 'Prof. Miller', enrolled: 25, capacity: 40 }
-      ]
-    },
-    {
-      courseId: 'CS503',
-      courseName: 'Operating Systems',
-      semester: 'S5',
-      department: 'Computer Science',
-      batches: [
-        { batchId: 'A', staff: 'Dr. Taylor', enrolled: 33, capacity: 40 },
-        { batchId: 'B', staff: 'Prof. Anderson', enrolled: 29, capacity: 40 },
-        { batchId: 'C', staff: 'Dr. White', enrolled: 31, capacity: 40 }
-      ]
-    }
-  ]);
-
-  // State management
-  const [searchTerm, setSearchTerm] = useState('');
+  const [students, setStudents] = useState([]);
+  const [availableCourses, setAvailableCourses] = useState([]);
+  const [batches, setBatches] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState({
-    department: '',
-    semester: '',
-    course: ''
+    department: "",
+    semester: "",
+    course: "",
   });
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [showEnrollModal, setShowEnrollModal] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState(null);
-  const [filteredStudents, setFilteredStudents] = useState(students);
+  const [filteredStudents, setFilteredStudents] = useState([]);
+  const [editBatchId, setEditBatchId] = useState("");
+  const [editSemester, setEditSemester] = useState("");
+  const [showEditBatch, setShowEditBatch] = useState(false);
+  const [error, setError] = useState(null); // New state for error handling
 
   // Filter options
-  const departments = ['Computer Science', 'Electronics', 'Mechanical', 'Civil'];
-  const semesters = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8'];
+  const departments = [
+    "Computer Science",
+    "Electronics",
+    "Mechanical",
+    "Civil",
+    "Information Technology",
+    "Electrical and Electronics Engineering",
+    "Artificial Intelligence and Data Science",
+  ];
+  const semesters = ["S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8"];
+
+  // Fetch all batches on load
+  useEffect(() => {
+    const fetchBatches = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/batches`);
+        if (!res.ok) throw new Error("Failed to fetch batches");
+        const { data } = await res.json();
+        setBatches(data);
+      } catch (err) {
+        console.error("Failed to fetch batches:", err);
+        setError("Unable to load batches. Please try again.");
+      }
+    };
+    fetchBatches();
+  }, []);
+
+  // Fetch students and enrolled courses
+  useEffect(() => {
+    const fetchStudents = async () => {
+      setIsLoading(true);
+      setError(null); // Reset error
+      try {
+        const res = await fetch(`${API_BASE}/students`);
+        if (!res.ok) throw new Error("Failed to fetch students");
+        const { data: rawData } = await res.json();
+        const mapped = rawData.map((s) => ({
+          id: s.rollnumber,
+          rollNo: s.rollnumber,
+          rollnumber: s.rollnumber,
+          name: s.name,
+          batchId: s.batchId,
+          department: s.branch,
+          semester: `S${s.semesterNumber}`,
+          semesterNumber: s.semesterNumber,
+          batch: s.batch,
+          enrolledCourses: [],
+        }));
+
+        // Load enrolled courses for each student
+        const updated = await Promise.all(
+          mapped.map(async (student) => {
+            try {
+              const erRes = await fetch(`${API_BASE}/students/${student.rollnumber}/enrolled-courses`);
+              if (erRes.ok) {
+                const erData = await erRes.json();
+                return { ...student, enrolledCourses: erData.data || [] };
+              } else {
+                console.warn(`No enrolled courses found for ${student.rollnumber}`);
+                return { ...student, enrolledCourses: [] }; // Return empty array for 404
+              }
+            } catch (err) {
+              console.error(`Failed to fetch enrolled courses for ${student.rollnumber}:`, err);
+              return { ...student, enrolledCourses: [] }; // Fallback to empty array
+            }
+          })
+        );
+        setStudents(updated);
+      } catch (err) {
+        console.error("Failed to fetch students:", err);
+        setError("Unable to load students. Please check the server and try again.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchStudents();
+  }, []);
 
   // Filter students based on search and filters
   useEffect(() => {
-    let filtered = students.filter(student => {
-      const matchesSearch = 
+    let filtered = students.filter((student) => {
+      const matchesSearch =
         student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        student.rollNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        student.email.toLowerCase().includes(searchTerm.toLowerCase());
-      
+        student.rollNo.toLowerCase().includes(searchTerm.toLowerCase());
+
       const matchesDept = !filters.department || student.department === filters.department;
       const matchesSem = !filters.semester || student.semester === filters.semester;
-      
-      const matchesCourse = !filters.course || student.enrolledCourses.some(course => 
-        course.courseName.toLowerCase().includes(filters.course.toLowerCase())
-      );
+
+      const matchesCourse =
+        !filters.course ||
+        student.enrolledCourses.some((course) =>
+          course.courseName.toLowerCase().includes(filters.course.toLowerCase())
+        );
 
       return matchesSearch && matchesDept && matchesSem && matchesCourse;
     });
@@ -119,62 +127,138 @@ const ManageStudents = () => {
 
   const handleStudentClick = (student) => {
     setSelectedStudent(student);
+    setEditBatchId(student.batchId);
+    setEditSemester(student.semesterNumber);
+    setShowEditBatch(false);
+    setError(null); // Reset error when selecting a new student
   };
 
-  const handleEnrollToCourse = () => {
-    setShowEnrollModal(true);
+  const handleEnrollToCourse = async () => {
+    if (!selectedStudent) return;
+    setError(null); // Reset error
+    try {
+      const res = await fetch(`${API_BASE}/courses/available/${selectedStudent.batchId}/${selectedStudent.semesterNumber}`);
+      if (!res.ok) {
+        if (res.status === 404) {
+          throw new Error("No available courses found for this batch and semester");
+        }
+        throw new Error("Failed to fetch available courses");
+      }
+      const { data } = await res.json();
+      setAvailableCourses(data);
+      setShowEnrollModal(true);
+    } catch (err) {
+      console.error("Failed to fetch available courses:", err);
+      setError(err.message || "Unable to load available courses. Please try again.");
+    }
   };
 
   const handleCourseSelect = (course) => {
     setSelectedCourse(course);
   };
 
-  const handleBatchEnroll = (courseId, batchId, staff) => {
-    // Update student's enrolled courses
-    const updatedStudents = students.map(student => {
-      if (student.id === selectedStudent.id) {
-        const isAlreadyEnrolled = student.enrolledCourses.some(course => course.courseId === courseId);
-        if (!isAlreadyEnrolled) {
-          return {
-            ...student,
-            enrolledCourses: [...student.enrolledCourses, {
-              courseId,
-              courseName: selectedCourse.courseName,
-              batch: batchId,
-              staff
-            }]
-          };
-        }
+  const handleBatchEnroll = async (courseId, batchId, staffId) => {
+    if (!selectedStudent) return;
+    setError(null); // Reset error
+    try {
+      const res = await fetch(`${API_BASE}/students/enroll`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rollnumber: selectedStudent.rollnumber,
+          courseCode: courseId,
+          sectionName: batchId,
+          staffId: staffId || null,
+        }),
+      });
+      const result = await res.json();
+      if (result.status === "success") {
+        const newCourse = {
+          courseId,
+          courseName: selectedCourse.courseName,
+          batch: batchId,
+          staff: selectedCourse.batches.find((b) => b.batchId === batchId)?.staff || "Not Assigned",
+        };
+        const updatedEnrolled = [...selectedStudent.enrolledCourses, newCourse];
+        const updatedStudent = { ...selectedStudent, enrolledCourses: updatedEnrolled };
+        setSelectedStudent(updatedStudent);
+        setStudents(students.map((s) => (s.rollnumber === selectedStudent.rollnumber ? updatedStudent : s)));
+        alert(result.message || "Student enrolled successfully!");
+        setShowEnrollModal(false);
+        setSelectedCourse(null);
+      } else {
+        alert(result.message || "Enrollment failed");
       }
-      return student;
-    });
-
-    setStudents(updatedStudents);
-    
-    // Update selected student
-    const updatedSelectedStudent = updatedStudents.find(s => s.id === selectedStudent.id);
-    setSelectedStudent(updatedSelectedStudent);
-    
-    // Reset modal states
-    setSelectedCourse(null);
-    setShowEnrollModal(false);
-    
-    alert(`Student enrolled in ${selectedCourse.courseName} - Batch ${batchId} successfully!`);
+    } catch (err) {
+      alert("Error enrolling student");
+      console.error(err);
+      setError("Failed to enroll student. Please try again.");
+    }
   };
 
   const getAvailableCoursesForStudent = () => {
     if (!selectedStudent) return [];
-    
-    return availableCourses.filter(course => {
+    return availableCourses.filter((course) => {
       const isAlreadyEnrolled = selectedStudent.enrolledCourses.some(
-        enrolled => enrolled.courseId === course.courseId
+        (enrolled) => enrolled.courseId === course.courseId
       );
-      const matchesDeptSem = course.department === selectedStudent.department && 
-                           course.semester === selectedStudent.semester;
-      
-      return !isAlreadyEnrolled && matchesDeptSem;
+      return !isAlreadyEnrolled;
     });
   };
+
+  const handleUpdateBatch = async () => {
+    if (!selectedStudent || !editBatchId || !editSemester) return;
+    setError(null); // Reset error
+    try {
+      const res = await fetch(`${API_BASE}/students/${selectedStudent.rollnumber}/batch`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          batchId: parseInt(editBatchId),
+          semesterNumber: parseInt(editSemester),
+        }),
+      });
+      if (res.ok) {
+        const result = await res.json();
+        alert(result.message || "Batch updated successfully!");
+        const updatedStudent = {
+          ...selectedStudent,
+          batchId: parseInt(editBatchId),
+          semesterNumber: parseInt(editSemester),
+          semester: `S${editSemester}`,
+        };
+        setSelectedStudent(updatedStudent);
+        setStudents(students.map((s) => (s.rollnumber === selectedStudent.rollnumber ? updatedStudent : s)));
+        setShowEditBatch(false);
+      } else {
+        const result = await res.json();
+        alert(result.message || "Update failed");
+        setError(result.message || "Failed to update batch. Please try again.");
+      }
+    } catch (err) {
+      alert("Error updating batch");
+      console.error(err);
+      setError("Failed to update batch. Please try again.");
+    }
+  };
+
+  if (isLoading) {
+    return <div className="p-6 text-center">Loading students...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 text-center text-red-600">
+        <p>{error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 max-w-7xl mx-auto bg-gray-50 min-h-screen">
@@ -185,56 +269,52 @@ const ManageStudents = () => {
 
       {/* Search and Filter Section */}
       <div className="bg-white p-6 rounded-lg shadow-sm mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          {/* Search Bar */}
-          <div className="md:col-span-2 relative">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="md:col-span-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <input
               type="text"
-              placeholder="Search by name, roll number, or email..."
+              placeholder="Search by name or roll number..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-
-          {/* Department Filter */}
           <select
             value={filters.department}
-            onChange={(e) => setFilters({...filters, department: e.target.value})}
+            onChange={(e) => setFilters({ ...filters, department: e.target.value })}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="">All Departments</option>
-            {departments.map(dept => (
-              <option key={dept} value={dept}>{dept}</option>
+            {departments.map((dept) => (
+              <option key={dept} value={dept}>
+                {dept}
+              </option>
             ))}
           </select>
-
-          {/* Semester Filter */}
           <select
             value={filters.semester}
-            onChange={(e) => setFilters({...filters, semester: e.target.value})}
+            onChange={(e) => setFilters({ ...filters, semester: e.target.value })}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="">All Semesters</option>
-            {semesters.map(sem => (
-              <option key={sem} value={sem}>{sem}</option>
+            {semesters.map((sem) => (
+              <option key={sem} value={sem}>
+                {sem}
+              </option>
             ))}
           </select>
-
-          {/* Course Filter */}
           <input
             type="text"
-            placeholder="Filter by course..."
+            placeholder="Filter by enrolled course..."
             value={filters.course}
-            onChange={(e) => setFilters({...filters, course: e.target.value})}
+            onChange={(e) => setFilters({ ...filters, course: e.target.value })}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Students List */}
         <div className="lg:col-span-2">
           <div className="bg-white rounded-lg shadow-sm">
             <div className="p-4 border-b border-gray-200">
@@ -244,19 +324,21 @@ const ManageStudents = () => {
               </h2>
             </div>
             <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
-              {filteredStudents.map(student => (
+              {filteredStudents.map((student) => (
                 <div
                   key={student.id}
                   onClick={() => handleStudentClick(student)}
                   className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors ${
-                    selectedStudent?.id === student.id ? 'bg-blue-50 border-r-4 border-blue-500' : ''
+                    selectedStudent?.id === student.id ? "bg-blue-50 border-r-4 border-blue-500" : ""
                   }`}
                 >
                   <div className="flex justify-between items-start">
                     <div>
                       <h3 className="font-medium text-gray-900">{student.name}</h3>
                       <p className="text-sm text-gray-600">{student.rollNo}</p>
-                      <p className="text-sm text-gray-500">{student.department} • {student.semester}</p>
+                      <p className="text-sm text-gray-500">
+                        {student.department} • {student.semester} • Batch {student.batch}
+                      </p>
                     </div>
                     <div className="text-right">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
@@ -276,7 +358,6 @@ const ManageStudents = () => {
           </div>
         </div>
 
-        {/* Student Details Panel */}
         <div className="lg:col-span-1">
           {selectedStudent ? (
             <div className="bg-white rounded-lg shadow-sm">
@@ -287,10 +368,54 @@ const ManageStudents = () => {
                 <div>
                   <h3 className="font-medium text-gray-900 mb-2">{selectedStudent.name}</h3>
                   <p className="text-sm text-gray-600 mb-1">Roll No: {selectedStudent.rollNo}</p>
-                  <p className="text-sm text-gray-600 mb-1">Email: {selectedStudent.email}</p>
-                  <p className="text-sm text-gray-600 mb-1">Phone: {selectedStudent.phone}</p>
                   <p className="text-sm text-gray-600 mb-1">Department: {selectedStudent.department}</p>
+                  <p className="text-sm text-gray-600 mb-1">Program Batch: {selectedStudent.batch}</p>
                   <p className="text-sm text-gray-600">Semester: {selectedStudent.semester}</p>
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="font-medium text-gray-900">Edit Batch & Semester</h4>
+                    <button
+                      onClick={() => setShowEditBatch(!showEditBatch)}
+                      className="px-3 py-1.5 bg-gray-600 text-white text-sm rounded-lg hover:bg-gray-700 transition-colors flex items-center"
+                    >
+                      <Edit3 className="w-4 h-4 mr-1" />
+                      {showEditBatch ? "Cancel" : "Edit"}
+                    </button>
+                  </div>
+                  {showEditBatch && (
+                    <div className="space-y-2">
+                      <select
+                        value={editBatchId}
+                        onChange={(e) => setEditBatchId(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      >
+                        <option value="">Select Batch</option>
+                        {batches.map((b) => (
+                          <option key={b.batchId} value={b.batchId}>
+                            {b.degree} {b.branch} {b.batch}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="number"
+                        min={1}
+                        max={8}
+                        value={editSemester}
+                        onChange={(e) => setEditSemester(e.target.value)}
+                        placeholder="Semester (1-8)"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      />
+                      <button
+                        onClick={handleUpdateBatch}
+                        className="w-full py-2 px-4 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center"
+                      >
+                        <Save className="w-4 h-4 mr-2" />
+                        Update
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -309,7 +434,9 @@ const ManageStudents = () => {
                       {selectedStudent.enrolledCourses.map((course, index) => (
                         <div key={index} className="p-3 bg-gray-50 rounded-lg">
                           <p className="font-medium text-sm text-gray-900">{course.courseName}</p>
-                          <p className="text-xs text-gray-600">Batch {course.batch} • {course.staff}</p>
+                          <p className="text-xs text-gray-600">
+                            Section {course.batch} • {course.staff}
+                          </p>
                         </div>
                       ))}
                     </div>
@@ -328,7 +455,6 @@ const ManageStudents = () => {
         </div>
       </div>
 
-      {/* Enrollment Modal */}
       {showEnrollModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
@@ -340,6 +466,7 @@ const ManageStudents = () => {
                 onClick={() => {
                   setShowEnrollModal(false);
                   setSelectedCourse(null);
+                  setError(null);
                 }}
                 className="text-gray-400 hover:text-gray-600"
               >
@@ -348,11 +475,16 @@ const ManageStudents = () => {
             </div>
 
             <div className="p-6">
+              {error && (
+                <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg">
+                  {error}
+                </div>
+              )}
               {!selectedCourse ? (
                 <div>
                   <h3 className="font-medium text-blue-900 mb-4">Available Courses</h3>
                   <div className="space-y-3">
-                    {getAvailableCoursesForStudent().map(course => (
+                    {getAvailableCoursesForStudent().map((course) => (
                       <div
                         key={course.courseId}
                         onClick={() => handleCourseSelect(course)}
@@ -361,7 +493,9 @@ const ManageStudents = () => {
                         <div className="flex justify-between items-center">
                           <div>
                             <h4 className="font-medium text-blue-900">{course.courseName}</h4>
-                            <p className="text-sm text-blue-600">{course.courseId} • {course.semester}</p>
+                            <p className="text-sm text-blue-600">
+                              {course.courseCode} • {course.semester}
+                            </p>
                           </div>
                           <ChevronRight className="w-5 h-5 text-blue-400" />
                         </div>
@@ -381,31 +515,31 @@ const ManageStudents = () => {
                     ← Back to courses
                   </button>
                   <h3 className="font-medium text-blue-900 mb-4">
-                    Select Batch for {selectedCourse.courseName}
+                    Select Section for {selectedCourse.courseName}
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {selectedCourse.batches.map(batch => (
+                    {selectedCourse.batches.map((batch) => (
                       <div
                         key={batch.batchId}
                         className="p-4 border border-blue-200 rounded-lg hover:border-blue-400 transition-colors bg-blue-50"
                       >
                         <div className="text-center mb-3">
-                          <h4 className="font-medium text-blue-900">Batch {batch.batchId}</h4>
+                          <h4 className="font-medium text-blue-900">Section {batch.batchId}</h4>
                           <p className="text-sm text-blue-600">{batch.staff}</p>
                           <p className="text-xs text-blue-500 mt-1">
                             {batch.enrolled}/{batch.capacity} students
                           </p>
                         </div>
                         <button
-                          onClick={() => handleBatchEnroll(selectedCourse.courseId, batch.batchId, batch.staff)}
+                          onClick={() => handleBatchEnroll(selectedCourse.courseCode, batch.batchId, batch.staffId)}
                           disabled={batch.enrolled >= batch.capacity}
                           className={`w-full py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
                             batch.enrolled >= batch.capacity
-                              ? 'bg-blue-100 text-blue-400 cursor-not-allowed'
-                              : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
+                              ? "bg-blue-100 text-blue-400 cursor-not-allowed"
+                              : "bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
                           }`}
                         >
-                          {batch.enrolled >= batch.capacity ? 'Full' : 'Enroll'}
+                          {batch.enrolled >= batch.capacity ? "Full" : "Enroll"}
                         </button>
                       </div>
                     ))}

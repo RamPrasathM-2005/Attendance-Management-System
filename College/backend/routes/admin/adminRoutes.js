@@ -1,3 +1,4 @@
+// Updated routes file (adminRoutes.js or similar)
 import express from "express";
 import {
   addSemester,
@@ -29,6 +30,7 @@ import {
   getAvailableCourses,
   enrollStudentInCourse,
   updateStudentBatch,
+  getAvailableCoursesForBatch  // New import
 } from "../../controllers/studentAllocationController.js";
 import {
   getSectionsForCourse,
@@ -42,6 +44,7 @@ import {
   getStudentByRollNumber,
   updateStudent,
   deleteStudent,
+  getStudentEnrolledCourses  // New import
 } from "../../controllers/studentController.js";
 import {
   getAllBatches,
@@ -91,10 +94,7 @@ router
    📌 Staff-Course Allocation Routes
    ========================= */
 router.get("/users", getUsers);
-router.post("/courses/:courseId/staff", (req, res, next) => {
-  console.log(`Staff allocation route hit for courseId: ${req.params.courseId} at ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`);
-  allocateStaffToCourse(req, res, next);
- }); // Allocate staff to a course (Courses page)
+router.post("/courses/:courseId/staff", allocateStaffToCourse); // Allocate staff to a course (Courses page)
 router.post("/staff/:staffId/courses", allocateCourseToStaff); // Allocate course to a staff (Staff page)
 router.put("/staff-courses/:staffCourseId", updateStaffAllocation); // Update a staff-course allocation
 router.get("/courses/:courseId/staff", getStaffAllocationsByCourse); // Get staff allocations for a course
@@ -109,6 +109,9 @@ router.get("/students/search", searchStudents);
 router.get("/courses/available/:semesterNumber", getAvailableCourses);
 router.post("/students/enroll", enrollStudentInCourse);
 router.put("/students/:rollnumber/batch", updateStudentBatch);
+
+// New route for enriched available courses
+router.get("/courses/available/:batchId/:semesterNumber", getAvailableCoursesForBatch);
 
 /* =========================
    📌 Section (Batch) Routes
@@ -131,6 +134,9 @@ router
   .get(getStudentByRollNumber) // Get a single student by rollnumber
   .put(updateStudent)       // Update a student by rollnumber
   .delete(deleteStudent);     // Delete a student by rollnumber
+
+// New route for enrolled courses
+router.get("/students/:rollnumber/enrolled-courses", getStudentEnrolledCourses);
 
 /* =========================
    📌 Batch Routes

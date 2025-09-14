@@ -1,6 +1,7 @@
 import pool from "../db.js";
 import catchAsync from "../utils/catchAsync.js";
 
+// Existing controllers (unchanged, included for completeness)
 export const searchStudents = catchAsync(async (req, res) => {
   const { degree, branch, batch } = req.query;
 
@@ -311,5 +312,70 @@ export const getAvailableCoursesForBatch = catchAsync(async (req, res) => {
       status: "error",
       message: "Internal server error while fetching available courses",
     });
+  }
+});
+
+// New endpoint: Unenroll student from a course
+export const unenrollStudentFromCourse = catchAsync(async (req, res) => {
+  const { rollnumber, courseCode } = req.body;
+
+  if (!rollnumber || !courseCode) {
+    return res.status(400).json({
+      status: "failure",
+      message: "rollnumber and courseCode are required",
+    });
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // Validate student
+    const [studentRows] = await connection.execute(
+      `SELECT rollnumber FROM Student WHERE rollnumber = ? AND isActive = 'YES'`,
+      [rollnumber]
+    );
+    if (studentRows.length === 0) {
+      return res.status(404).json({
+        status: "failure",
+        message: `No active student found with rollnumber ${rollnumber}`,
+      });
+    }
+
+    // Validate enrollment
+    const [enrollmentRows] = await connection.execute(
+      `SELECT studentCourseId FROM StudentCourse WHERE rollnumber = ? AND courseCode = ?`,
+      [rollnumber, courseCode]
+    );
+    if (enrollmentRows.length === 0) {
+      return res.status(404).json({
+        status: "failure",
+        message: `Student ${rollnumber} is not enrolled in course ${courseCode}`,
+      });
+    }
+
+    // Delete enrollment
+    const [result] = await connection.execute(
+      `DELETE FROM StudentCourse WHERE rollnumber = ? AND courseCode = ?`,
+      [rollnumber, courseCode]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(400).json({
+        status: "failure",
+        message: "No changes made. Student may not be enrolled in the course",
+      });
+    }
+
+    await connection.commit();
+    res.status(200).json({
+      status: "success",
+      message: `Student ${rollnumber} unenrolled from course ${courseCode} successfully`,
+    });
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
   }
 });

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Search, Users, UserPlus, Eye, ChevronRight, X, Edit2 } from "lucide-react";
+import { Search, Users, UserPlus, Eye, ChevronRight, X, Edit2, Trash2 } from "lucide-react";
 import { branchMap } from "../admin/ManageSemesters/branchMap.js";
 
 const API_BASE = "http://localhost:4000/api/admin"; // Adjust to match backend port
@@ -108,7 +108,6 @@ const ManageStudents = () => {
               const erRes = await fetch(`${API_BASE}/students/${student.rollnumber}/enrolled-courses`);
               if (erRes.ok) {
                 const erData = await erRes.json();
-                console.log(`Enrolled courses for ${student.rollnumber}:`, JSON.stringify(erData.data, null, 2));
                 return { ...student, enrolledCourses: erData.data || [] };
               } else if (erRes.status === 404) {
                 console.warn(`Student ${student.rollnumber} not found or no enrolled courses`);
@@ -258,6 +257,36 @@ const ManageStudents = () => {
       console.error("Failed to fetch available courses for section edit:", err);
       setError(err.message || "Unable to load available sections. Please try again.");
       setShowEnrollModal(false);
+    }
+  };
+
+  const handleUnenrollCourse = async (course) => {
+    if (!selectedStudent) return;
+    if (!window.confirm(`Are you sure you want to unenroll ${selectedStudent.name} from ${course.courseName}?`)) return;
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/students/unenroll`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rollnumber: selectedStudent.rollnumber,
+          courseCode: course.courseCode,
+        }),
+      });
+      const result = await res.json();
+      if (result.status === "success") {
+        const updatedEnrolled = selectedStudent.enrolledCourses.filter((c) => c.courseCode !== course.courseCode);
+        const updatedStudent = { ...selectedStudent, enrolledCourses: updatedEnrolled };
+        setSelectedStudent(updatedStudent);
+        setStudents(students.map((s) => (s.rollnumber === selectedStudent.rollnumber ? updatedStudent : s)));
+        alert(result.message || "Student unenrolled successfully!");
+      } else {
+        alert(result.message || "Unenrollment failed");
+        setError(result.message || "Failed to unenroll student. Please try again.");
+      }
+    } catch (err) {
+      console.error("Error unenrolling student:", err);
+      setError("Failed to unenroll student. Please try again.");
     }
   };
 
@@ -434,13 +463,22 @@ const ManageStudents = () => {
                               Section {course.batch} • {course.staff}
                             </p>
                           </div>
-                          <button
-                            onClick={() => handleEditCourseSection(course)}
-                            className="px-2 py-1 bg-gray-600 text-white text-xs rounded-lg hover:bg-gray-700 transition-colors flex items-center"
-                          >
-                            <Edit2 className="w-3 h-3 mr-1" />
-                            Edit Section
-                          </button>
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => handleEditCourseSection(course)}
+                              className="px-2 py-1 bg-gray-600 text-white text-xs rounded-lg hover:bg-gray-700 transition-colors flex items-center"
+                            >
+                              <Edit2 className="w-3 h-3 mr-1" />
+                              Edit Section
+                            </button>
+                            <button
+                              onClick={() => handleUnenrollCourse(course)}
+                              className="px-2 py-1 bg-red-600 text-white text-xs rounded-lg hover:bg-red-700 transition-colors flex items-center"
+                            >
+                              <Trash2 className="w-3 h-3 mr-1" />
+                              Unenroll
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>

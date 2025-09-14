@@ -133,6 +133,34 @@ export const getStudentEnrolledCourses = catchAsync(async (req, res) => {
   });
 });
 
+
+export const getStudentsByCourseAndSection = catchAsync(async (req, res) => {
+  const { courseCode, sectionId } = req.query;
+  if (!courseCode || !sectionId) {
+    return res.status(400).json({
+      status: 'error',
+      message: 'Missing courseCode or sectionId',
+    });
+  }
+
+  const [rows] = await pool.execute(
+    `SELECT 
+      s.rollnumber,
+      s.name,
+      sec.sectionName as batch
+     FROM StudentCourse sc
+     JOIN Student s ON sc.rollnumber = s.rollnumber
+     JOIN Section sec ON sc.sectionId = sec.sectionId
+     WHERE sc.courseCode = ? AND sc.sectionId = ?`,
+    [courseCode, sectionId]
+  );
+
+  res.status(200).json({
+    status: 'success',
+    data: rows,
+  });
+});
+
 // New endpoint: Get distinct branches for department filter
 export const getBranches = catchAsync(async (req, res) => {
   const [rows] = await pool.execute(`SELECT DISTINCT branch FROM Batch WHERE isActive = 'YES'`);

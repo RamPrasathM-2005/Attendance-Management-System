@@ -41,7 +41,7 @@ export const addSectionsToCourse = catchAsync(async (req, res) => {
     let newSectionsAdded = 0;
     for (let i = 1; i <= numberOfSections; i++) {
       const sectionNum = currentMax + i;
-      const sectionName = `Batch${sectionNum}`;
+      const sectionName = `Batch ${sectionNum}`;
       sectionsToAdd.push([courseCode, sectionName, req.user?.email || 'admin', req.user?.email || 'admin']);
       newSectionsAdded++;
     }
@@ -312,3 +312,19 @@ export const allocateStaffToCourse = catchAsync(async (req, res) => {
     connection.release();
   }
 });
+
+export const getSections = catchAsync(async (req, res) => {
+   try {
+    const [rows] = await pool.execute(`
+      SELECT s.sectionId, s.sectionName, s.courseCode, c.semesterId, sem.batchId
+      FROM Section s
+      JOIN Course c ON s.courseCode = c.courseCode
+      JOIN Semester sem ON c.semesterId = sem.semesterId
+    `);
+    res.status(200).json({ status: 'success', data: rows });
+  } catch (err) {
+    console.error('Error fetching sections:', err);
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+
+})

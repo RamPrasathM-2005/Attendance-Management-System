@@ -63,7 +63,7 @@ const ManageStaff = () => {
       // Fetch batches
       const batchRes = await axios.get(`${API_BASE}/batches`);
       const batchesData = Array.isArray(batchRes.data.data) ? batchRes.data.data : [];
-      console.log('Fetched batches:', JSON.nan, 2);
+      console.log('Fetched batches:', JSON.stringify(batchesData, null, 2));
       setBatches(batchesData);
 
       // Fetch users (staff)
@@ -180,7 +180,7 @@ const ManageStaff = () => {
       const { dept, semester, batch } = filters;
       const matchesName = !nameSearch || staff.name.toLowerCase().includes(nameSearch.toLowerCase());
       const hasMatchingCourse = staff.allocatedCourses.some(course => {
-        const courseBatchYear = course.year; // Use batchYears from semester
+        const courseBatchYear = course.year;
         return (
           (!semester || course.semester === semester) &&
           (!batch || courseBatchYear.toLowerCase() === batch.toLowerCase())
@@ -396,22 +396,68 @@ const ManageStaff = () => {
         : `${API_BASE}/staff/${selectedStaff.staffId}/courses`;
       const method = isUpdate ? axios.patch : axios.post;
 
+      // Optimistically update selectedStaff
+      const tempCourseId = Date.now(); // Temporary ID for optimistic update
+      const optimisticCourse = {
+        id: tempCourseId,
+        courseCode: selectedCourse.code,
+        name: selectedCourse.name,
+        sectionId: selectedSectionId,
+        batch: selectedCourse.sections.find(s => s.sectionId === selectedSectionId)?.sectionName || 'N/A',
+        semester: selectedCourse.semester || 'N/A',
+        year: selectedCourse.batchYears || 'N/A',
+      };
+      setSelectedStaff(prev => ({
+        ...prev,
+        allocatedCourses: isUpdate
+          ? prev.allocatedCourses.map(c => c.courseCode === selectedCourse.code ? optimisticCourse : c)
+          : [...prev.allocatedCourses, optimisticCourse]
+      }));
+      console.log('Applied optimistic update to selectedStaff:', JSON.stringify(selectedStaff, null, 2));
+
       const res = await method(endpoint, payload);
       console.log(`${isUpdate ? 'Update' : 'Allocation'} response:`, JSON.stringify(res.data, null, 2));
       if (res.status === 201 || res.status === 200) {
+        // Close only the course-list modal
         setShowAllocateCourseModal(false);
         setSelectedCourse(null);
         setSelectedSectionId('');
         setCourseSearch('');
         setCourseFilters({ dept: '', semester: '', batch: '' });
+
+        // Fetch updated data
         await fetchData();
+        console.log('Updated staffList after fetch:', JSON.stringify(staffList, null, 2));
+
+        // Sync selectedStaff with staffList
         const updatedStaff = staffList.find(s => s.staffId === selectedStaff.staffId);
-        setSelectedStaff(updatedStaff || selectedStaff);
-        if (operationFromModal) {
-          setShowStaffDetailsModal(true);
+        if (updatedStaff) {
+          setSelectedStaff(updatedStaff);
+          console.log('Synced selectedStaff from staffList:', JSON.stringify(updatedStaff, null, 2));
         } else {
-          setExpandedCourses(prev => [...prev, selectedStaff.staffId]);
+          console.warn('Updated staff not found in staffList, updating optimistic course');
+          setSelectedStaff(prev => ({
+            ...prev,
+            allocatedCourses: prev.allocatedCourses.map(c =>
+              c.id === tempCourseId
+                ? {
+                    ...c,
+                    id: res.data.data?.staffCourseId || c.id,
+                    sectionId: selectedSectionId,
+                    batch: selectedCourse.sections.find(s => s.sectionId === selectedSectionId)?.sectionName || c.batch
+                  }
+                : c
+            )
+          }));
         }
+
+        // Ensure courses are expanded in main view
+        setExpandedCourses(prev => {
+          const newExpanded = prev.includes(selectedStaff.staffId) ? prev : [...prev, selectedStaff.staffId];
+          console.log('Updated expandedCourses:', newExpanded);
+          return newExpanded;
+        });
+
         console.log('Triggering allocate course success toast');
         toast.success(`Course ${selectedCourse.code} ${isUpdate ? 'updated' : 'allocated'} successfully`, {
           position: "top-right",
@@ -424,6 +470,12 @@ const ManageStaff = () => {
           toastId: "allocate-course-success"
         });
       } else {
+        // Revert optimistic update
+        setSelectedStaff(prev => ({
+          ...prev,
+          allocatedCourses: prev.allocatedCourses.filter(c => c.id !== tempCourseId)
+        }));
+        console.log('Reverted optimistic update due to API failure');
         console.log('Triggering allocate course API error toast');
         toast.error(`Failed to ${isUpdate ? 'update' : 'allocate'} course`, {
           position: "top-right",
@@ -437,6 +489,11 @@ const ManageStaff = () => {
         });
       }
     } catch (err) {
+      // Revert optimistic update
+      setSelectedStaff(prev => ({
+        ...prev,
+        allocatedCourses: prev.allocatedCourses.filter(c => c.id !== tempCourseId)
+      }));
       console.error(`${selectedCourse.isAllocated ? 'Update' : 'Allocation'} error:`, err.response || err);
       console.log('Triggering allocate course catch error toast');
       toast.error(`Error ${selectedCourse.isAllocated ? 'updating' : 'allocating'} course: ${err.response?.data?.message || err.message}`, {
@@ -470,21 +527,42 @@ const ManageStaff = () => {
     }
     if (!confirm(`Remove this course allocation?`)) return;
 
+    // Optimistically remove the course from selectedStaff
+    const courseToRemove = selectedStaff.allocatedCourses.find(c => c.id === staffCourseId);
+    setSelectedStaff(prev => ({
+      ...prev,
+      allocatedCourses: prev.allocatedCourses.filter(c => c.id !== staffCourseId)
+    }));
+    console.log('Applied optimistic removal to selectedStaff:', JSON.stringify(selectedStaff, null, 2));
+
     try {
-      const course = selectedStaff.allocatedCourses.find(c => c.id === staffCourseId);
       const res = await axios.delete(`${API_BASE}/staff-courses/${staffCourseId}`);
       console.log('Remove course response:', JSON.stringify(res.data, null, 2));
       if (res.status === 200) {
+        // Fetch updated data
         await fetchData();
-        const updatedStaff = staffList.find(s => s.staffId === selectedStaff.staffId) || selectedStaff;
-        setSelectedStaff(updatedStaff);
-        if (operationFromModal) {
-          setShowStaffDetailsModal(true);
+        console.log('Updated staffList after fetch:', JSON.stringify(staffList, null, 2));
+
+        // Sync selectedStaff with staffList
+        const updatedStaff = staffList.find(s => s.staffId === selectedStaff.staffId);
+        if (updatedStaff) {
+          setSelectedStaff(updatedStaff);
+          console.log('Synced selectedStaff from staffList:', JSON.stringify(updatedStaff, null, 2));
         } else {
-          setExpandedCourses(prev => [...prev, selectedStaff.staffId]);
+          console.warn('Updated staff not found in staffList, retaining optimistic removal');
         }
+
+        // Ensure courses are expanded in main view if not from modal
+        if (!operationFromModal) {
+          setExpandedCourses(prev => {
+            const newExpanded = prev.includes(selectedStaff.staffId) ? prev : [...prev, selectedStaff.staffId];
+            console.log('Updated expandedCourses:', newExpanded);
+            return newExpanded;
+          });
+        }
+
         console.log('Triggering remove course success toast');
-        toast.success(`Course ${course?.courseCode || 'Unknown'} removed successfully`, {
+        toast.success(`Course ${courseToRemove?.courseCode || 'Unknown'} removed successfully`, {
           position: "top-right",
           autoClose: 3000,
           hideProgressBar: false,
@@ -495,6 +573,12 @@ const ManageStaff = () => {
           toastId: "remove-course-success"
         });
       } else {
+        // Revert optimistic removal
+        setSelectedStaff(prev => ({
+          ...prev,
+          allocatedCourses: [...prev.allocatedCourses, courseToRemove]
+        }));
+        console.log('Reverted optimistic removal due to API failure');
         console.log('Triggering remove course API error toast');
         toast.error('Failed to remove course allocation', {
           position: "top-right",
@@ -508,6 +592,11 @@ const ManageStaff = () => {
         });
       }
     } catch (err) {
+      // Revert optimistic removal
+      setSelectedStaff(prev => ({
+        ...prev,
+        allocatedCourses: [...prev.allocatedCourses, courseToRemove]
+      }));
       console.error('Remove course error:', err.response || err);
       console.log('Triggering remove course catch error toast');
       toast.error(`Error removing course: ${err.response?.data?.message || err.message}`, {
@@ -524,10 +613,10 @@ const ManageStaff = () => {
   };
 
   const handleEditBatch = async () => {
-    console.log('handleEditBatch called', { selectedStaffCourse, selectedSectionId });
-    if (!selectedStaffCourse || !selectedSectionId) {
+    console.log('handleEditBatch called', { selectedStaff, selectedStaffCourse, selectedSectionId });
+    if (!selectedStaff || !selectedStaffCourse || !selectedSectionId) {
       console.log('Triggering edit batch validation error toast');
-      toast.error('Missing course or section information', {
+      toast.error('Missing staff, course, or section information', {
         position: "top-right",
         autoClose: 3000,
         hideProgressBar: false,
@@ -541,10 +630,26 @@ const ManageStaff = () => {
     }
 
     const payload = {
+      staffId: selectedStaff.staffId,
+      courseCode: selectedStaffCourse.courseCode,
       sectionId: selectedSectionId,
+      departmentId: selectedStaff.departmentId,
     };
 
     try {
+      const tempCourseId = Date.now();
+      const optimisticCourse = {
+        ...selectedStaffCourse,
+        id: tempCourseId,
+        sectionId: selectedSectionId,
+        batch: courses.find(c => c.code === selectedStaffCourse.courseCode)?.sections.find(s => s.sectionId === selectedSectionId)?.sectionName || 'N/A',
+      };
+      setSelectedStaff(prev => ({
+        ...prev,
+        allocatedCourses: prev.allocatedCourses.map(c => c.id === selectedStaffCourse.id ? optimisticCourse : c)
+      }));
+      console.log('Applied optimistic update for edit batch:', JSON.stringify(selectedStaff, null, 2));
+
       const res = await axios.patch(`${API_BASE}/staff-courses/${selectedStaffCourse.id}`, payload);
       console.log('Edit batch response:', JSON.stringify(res.data, null, 2));
       if (res.status === 200) {
@@ -552,15 +657,20 @@ const ManageStaff = () => {
         setSelectedStaffCourse(null);
         setSelectedSectionId('');
         await fetchData();
-        const updatedStaff = staffList.find(s => s.staffId === selectedStaff.staffId) || selectedStaff;
-        setSelectedStaff(updatedStaff);
-        if (operationFromModal) {
-          setShowStaffDetailsModal(true);
-        } else {
-          setExpandedCourses(prev => [...prev, selectedStaff.staffId]);
+        const updatedStaff = staffList.find(s => s.staffId === selectedStaff.staffId);
+        if (updatedStaff) {
+          setSelectedStaff(updatedStaff);
+          console.log('Synced selectedStaff from staffList:', JSON.stringify(updatedStaff, null, 2));
+        }
+        if (!operationFromModal) {
+          setExpandedCourses(prev => {
+            const newExpanded = prev.includes(selectedStaff.staffId) ? prev : [...prev, selectedStaff.staffId];
+            console.log('Updated expandedCourses:', newExpanded);
+            return newExpanded;
+          });
         }
         console.log('Triggering edit batch success toast');
-        toast.success(`Batch updated successfully for course ${selectedStaffCourse.courseCode}`, {
+        toast.success(`Section updated for course ${selectedStaffCourse.courseCode}`, {
           position: "top-right",
           autoClose: 3000,
           hideProgressBar: false,
@@ -571,8 +681,13 @@ const ManageStaff = () => {
           toastId: "edit-batch-success"
         });
       } else {
+        setSelectedStaff(prev => ({
+          ...prev,
+          allocatedCourses: prev.allocatedCourses.map(c => c.id === tempCourseId ? selectedStaffCourse : c)
+        }));
+        console.log('Reverted optimistic update due to API failure');
         console.log('Triggering edit batch API error toast');
-        toast.error(`Failed to update batch: ${res.data?.message || 'Unknown error'}`, {
+        toast.error('Failed to update section', {
           position: "top-right",
           autoClose: 3000,
           hideProgressBar: false,
@@ -584,9 +699,13 @@ const ManageStaff = () => {
         });
       }
     } catch (err) {
+      setSelectedStaff(prev => ({
+        ...prev,
+        allocatedCourses: prev.allocatedCourses.map(c => c.id === tempCourseId ? selectedStaffCourse : c)
+      }));
       console.error('Edit batch error:', err.response || err);
       console.log('Triggering edit batch catch error toast');
-      toast.error(`Error updating batch: ${err.response?.data?.message || err.message}`, {
+      toast.error(`Error updating section: ${err.response?.data?.message || err.message}`, {
         position: "top-right",
         autoClose: 3000,
         hideProgressBar: false,
@@ -797,31 +916,16 @@ const ManageStaff = () => {
                           </div>
 
                           <div className="px-4 py-3">
-                            <div className="grid grid-cols-3 gap-2 mb-3">
-                              <div className="text-center">
-                                <div className="text-sm font-bold text-gray-900">
-                                  {course.batch}
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                  Section
-                                </div>
-                              </div>
-                              <div className="text-center">
-                                <div className="text-sm font-bold text-gray-900">
-                                  {course.semester}
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                  Semester
-                                </div>
-                              </div>
-                              <div className="text-center">
-                                <div className="text-sm font-bold text-gray-900">
-                                  {course.year}
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                  Batch
-                                </div>
-                              </div>
+                            <div className="flex flex-wrap gap-2 mb-3 text-xs text-gray-600">
+                              <span className="inline-flex items-center px-2 py-1 rounded-md bg-blue-50">
+                                Section: {course.batch}
+                              </span>
+                              <span className="inline-flex items-center px-2 py-1 rounded-md bg-green-50">
+                                Semester: {course.semester}
+                              </span>
+                              <span className="inline-flex items-center px-2 py-1 rounded-md bg-purple-50">
+                                Batch: {course.year}
+                              </span>
                             </div>
 
                             <div className="flex flex-wrap gap-2">
@@ -831,6 +935,7 @@ const ManageStaff = () => {
                                   handleViewStudents(course.courseCode, course.sectionId);
                                 }}
                                 className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-2 rounded-lg text-xs font-medium transition-colors duration-200 border border-blue-200"
+                                title="View Students"
                               >
                                 <Users size={12} />
                                 <span className="truncate">Students</span>
@@ -846,6 +951,7 @@ const ManageStaff = () => {
                                   setOperationFromModal(false);
                                 }}
                                 className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 bg-amber-50 hover:bg-amber-100 text-amber-700 px-3 py-2 rounded-lg text-xs font-medium transition-colors duration-200 border border-amber-200"
+                                title="Edit Section"
                               >
                                 <Edit2 size={12} />
                                 <span className="truncate">Edit Section</span>
@@ -859,6 +965,7 @@ const ManageStaff = () => {
                                   handleRemoveCourse(course.id);
                                 }}
                                 className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2 rounded-lg text-xs font-medium transition-colors duration-200 border border-red-200"
+                                title="Remove Course"
                               >
                                 <Trash2 size={12} />
                                 <span className="truncate">Remove</span>
@@ -951,15 +1058,15 @@ const ManageStaff = () => {
                           <h4 className="font-semibold text-gray-900 text-sm">
                             {course.courseCode} - {course.name}
                           </h4>
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">
-                              {course.batch}
+                          <div className="flex flex-wrap gap-2 mt-2 text-xs text-gray-600">
+                            <span className="inline-flex items-center px-2 py-1 rounded-md bg-blue-50">
+                              Section: {course.batch}
                             </span>
-                            <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-green-100 text-green-800">
-                              Semester {course.semester}
+                            <span className="inline-flex items-center px-2 py-1 rounded-md bg-green-50">
+                              Semester: {course.semester}
                             </span>
-                            <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-purple-100 text-purple-800">
-                              {course.year}
+                            <span className="inline-flex items-center px-2 py-1 rounded-md bg-purple-50">
+                              Batch: {course.year}
                             </span>
                           </div>
                         </div>
@@ -968,6 +1075,7 @@ const ManageStaff = () => {
                           <button
                             onClick={() => handleViewStudents(course.courseCode, course.sectionId)}
                             className="inline-flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-2 rounded-lg text-xs font-medium transition-colors duration-200 border border-blue-200"
+                            title="View Students"
                           >
                             <Users size={12} />
                             View Students
@@ -980,6 +1088,7 @@ const ManageStaff = () => {
                               setOperationFromModal(true);
                             }}
                             className="inline-flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 px-3 py-2 rounded-lg text-xs font-medium transition-colors duration-200 border border-amber-200"
+                            title="Edit Section"
                           >
                             <Edit2 size={12} />
                             Edit Section
@@ -991,6 +1100,7 @@ const ManageStaff = () => {
                               handleRemoveCourse(course.id);
                             }}
                             className="inline-flex items-center gap-1.5 bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2 rounded-lg text-xs font-medium transition-colors duration-200 border border-red-200"
+                            title="Remove Course"
                           >
                             <Trash2 size={12} />
                             Remove

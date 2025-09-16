@@ -24,15 +24,37 @@ const Timetable = () => {
 
   const days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
   const periods = [
-    { id: 1, name: 'Period 1', time: '9:00-9:50', type: 'class' },
-    { id: 2, name: 'Period 2', time: '9:50-10:40', type: 'class' },
-    { id: 3, name: 'Short Break', time: '10:40-10:50', type: 'break' },
-    { id: 4, name: 'Period 3', time: '10:50-11:40', type: 'class' },
-    { id: 5, name: 'Period 4', time: '11:40-12:30', type: 'class' },
-    { id: 6, name: 'Lunch Break', time: '12:30-1:30', type: 'lunch' },
-    { id: 7, name: 'Period 5', time: '1:30-2:20', type: 'class' },
-    { id: 8, name: 'Period 6', time: '2:20-3:10', type: 'class' },
+    { id: 1, name: 'Period 1', time: '9:15-10:05', type: 'class' },
+    { id: 2, name: 'Period 2', time: '10:05-10:55', type: 'class' },
+    { id: 3, name: 'Short Break', time: '10:55-11:10', type: 'break' },
+    { id: 4, name: 'Period 3', time: '11:10-12:00', type: 'class' },
+    { id: 5, name: 'Period 4', time: '12:00-12:50', type: 'class' },
+    { id: 6, name: 'Lunch Break', time: '12:50-1:50', type: 'lunch' },
+    { id: 7, name: 'Period 5', time: '1:50-2:40', type: 'class' },
+    { id: 8, name: 'Period 6', time: '2:40-3:30', type: 'class' },
+    { id: 9, name: 'Short Break', time: '3:30-3:45', type: 'break' },
+    { id: 10, name: 'Period 7', time: '3:45-4:30', type: 'class' },
+    { id: 11, name: 'Period 8', time: '4:30-5:15', type: 'class' },
   ];
+
+  // Mapping functions for period numbers (excluding breaks)
+  const getBackendPeriod = (frontendId) => {
+    const mapping = { 1: 1, 2: 2, 4: 3, 5: 4, 7: 5, 8: 6, 10: 7, 11: 8 };
+    return mapping[frontendId];
+  };
+
+  const getFrontendId = (backendPeriod) => {
+    const mapping = { 1: 1, 2: 2, 3: 4, 4: 5, 5: 7, 6: 8, 7: 10, 8: 11 };
+    return mapping[backendPeriod];
+  };
+
+  const getPeriodName = (backendPeriod) => {
+    const periodNames = {
+      1: 'Period 1', 2: 'Period 2', 3: 'Period 3', 4: 'Period 4',
+      5: 'Period 5', 6: 'Period 6', 7: 'Period 7', 8: 'Period 8'
+    };
+    return periodNames[backendPeriod] || `Period ${backendPeriod}`;
+  };
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -215,10 +237,13 @@ const Timetable = () => {
     }
 
     try {
+      // Map frontend periodId to backend periodNumber (excluding breaks)
+      const backendPeriodNumber = getBackendPeriod(selectedCell.periodId);
+
       await axios.post(`${API_BASE_URL}/api/admin/timetable/entry`, {
         courseCode: courseValue,
         dayOfWeek: selectedCell.day,
-        periodNumber: selectedCell.periodId,
+        periodNumber: backendPeriodNumber,
         departmentId: selectedDept,
         semesterId: selectedSem,
       });
@@ -276,7 +301,7 @@ const Timetable = () => {
     };
 
     return (
-      <div className={`p-3 text-center font-medium border-r ${bgColor[period.type]}`}>
+      <div className={`p-3 text-center font-medium border-r ${bgColor[period.type]} min-h-[96px] flex flex-col justify-center`}>
         <div className="flex items-center justify-center gap-2 mb-1">
           {icons[period.type]}
           <span className="text-sm">{period.name}</span>
@@ -289,14 +314,15 @@ const Timetable = () => {
   const renderTimetableCell = (day, period) => {
     if (period.type !== 'class') {
       return (
-        <div className="p-4 bg-gray-100 text-center text-gray-500 border-r h-full flex items-center justify-center">
+        <div className="p-3 h-24 bg-gray-100 text-center text-gray-500 border-r flex items-center justify-center">
           {period.type === 'break' ? '☕' : '🍽️'}
         </div>
       );
     }
 
+    // Map backend periodNumber to frontend id for matching
     const cellData = timetableData.find(
-      entry => entry.dayOfWeek === day && entry.periodNumber === period.id
+      entry => entry.dayOfWeek === day && getFrontendId(entry.periodNumber) === period.id
     );
     const isSelected = selectedCell?.day === day && selectedCell?.periodId === period.id;
 
@@ -520,7 +546,7 @@ const Timetable = () => {
             </div>
 
             <div className="overflow-x-auto">
-              <div className="grid grid-cols-[auto_repeat(8,minmax(150px,1fr))]">
+              <div className="grid grid-cols-[auto_repeat(11,minmax(150px,1fr))]">
                 <div className="sticky top-0 left-0 bg-gray-100 z-20 p-4 font-semibold text-gray-700 border-r border-b text-left whitespace-nowrap">
                   Day/Period
                 </div>
@@ -666,7 +692,7 @@ const Timetable = () => {
                     <div className="font-semibold text-blue-900">{entry.courseCode}</div>
                     <div className="text-sm text-gray-700 mb-1">{entry.courseCode}</div>
                     <div className="text-xs text-gray-600">
-                      {entry.dayOfWeek}, Period {entry.periodNumber}
+                      {entry.dayOfWeek}, {getPeriodName(entry.periodNumber)}
                       {entry.sectionName ? ` (${entry.sectionName})` : ''}
                     </div>
                   </div>

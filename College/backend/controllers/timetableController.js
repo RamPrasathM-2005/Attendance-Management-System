@@ -117,6 +117,12 @@ export const createTimetableEntry = async (req, res) => {
       throw new Error('Missing required fields');
     }
 
+    // Define valid teaching periods (1-8, excluding breaks)
+    const validTeachingPeriods = [1, 2, 3, 4, 5, 6, 7, 8];
+    if (!validTeachingPeriods.includes(Number(periodNumber))) {
+      throw new Error('Invalid period number: must be a valid teaching period (1-8)');
+    }
+
     // Check for conflicts (same semester, day, period)
     const [conflictCheck] = await connection.execute(
       'SELECT timetableId FROM Timetable WHERE semesterId = ? AND dayOfWeek = ? AND periodNumber = ? AND isActive = "YES"',
@@ -168,6 +174,12 @@ export const updateTimetableEntry = async (req, res) => {
     // Validate required fields
     if (!courseCode || !dayOfWeek || !periodNumber || !departmentId || !semesterId) {
       throw new Error('Missing required fields');
+    }
+
+    // Define valid teaching periods (1-8, excluding breaks)
+    const validTeachingPeriods = [1, 2, 3, 4, 5, 6, 7, 8];
+    if (!validTeachingPeriods.includes(Number(periodNumber))) {
+      throw new Error('Invalid period number: must be a valid teaching period (1-8)');
     }
 
     // Check for conflicts (same semester, day, period, excluding current entry)

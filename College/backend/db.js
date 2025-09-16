@@ -114,7 +114,7 @@ const initDatabase = async () => {
                 semesterId INT NOT NULL,
                 courseTitle VARCHAR(255) NOT NULL,
                 category ENUM('HSMC','BSC','ESC','PEC','OEC','EEC') NOT NULL,
-                type ENUM('THEORY','INTEGRATED','PRACTICAL') NOT NULL,
+                type ENUM('THEORY','INTEGRATED','PRACTICAL','EXPERIENTIAL LEARNING') NOT NULL,
                 lectureHours INT DEFAULT 0,
                 tutorialHours INT DEFAULT 0,
                 practicalHours INT DEFAULT 0,
@@ -251,21 +251,28 @@ const initDatabase = async () => {
         await connection.execute(`
             CREATE TABLE IF NOT EXISTS Timetable (
                 timetableId INT PRIMARY KEY AUTO_INCREMENT,
-                staffId VARCHAR(10) NOT NULL,
-                courseCode VARCHAR(20) NOT NULL,
-                sectionId INT NOT NULL,
+                courseCode VARCHAR(20) NOT NULL, -- No foreign key to allow manual entries
+                sectionId INT NULL, -- Nullable to make sections optional
                 dayOfWeek ENUM('MON','TUE','WED','THU','FRI','SAT') NOT NULL,
                 periodNumber INT NOT NULL CHECK (periodNumber BETWEEN 1 AND 8),
                 departmentId INT NOT NULL,
-                UNIQUE (staffId, dayOfWeek, periodNumber, departmentId),
-                CONSTRAINT fk_tt_staff_dept FOREIGN KEY (staffId, departmentId) REFERENCES Users(staffId, departmentId)
-                    ON UPDATE CASCADE ON DELETE CASCADE,
-                CONSTRAINT fk_tt_course FOREIGN KEY (courseCode) REFERENCES Course(courseCode)
+                semesterId INT NOT NULL,
+                isActive ENUM('YES','NO') DEFAULT 'YES',
+                createdBy VARCHAR(150),
+                updatedBy VARCHAR(150),
+                createdDate DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updatedDate DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                CONSTRAINT fk_tt_dept FOREIGN KEY (departmentId) REFERENCES Department(departmentId)
+                    ON UPDATE CASCADE ON DELETE RESTRICT,
+                CONSTRAINT fk_tt_sem FOREIGN KEY (semesterId) REFERENCES Semester(semesterId)
                     ON UPDATE CASCADE ON DELETE CASCADE,
                 CONSTRAINT fk_tt_section FOREIGN KEY (sectionId) REFERENCES Section(sectionId)
-                    ON UPDATE CASCADE ON DELETE CASCADE
-            )
+                    ON UPDATE CASCADE ON DELETE SET NULL,
+                UNIQUE (semesterId, dayOfWeek, periodNumber) -- Prevent duplicate time slots
+            );
         `);
+
+        
 
         // 14) DayAttendance - Stores daily attendance for students
         await connection.execute(`

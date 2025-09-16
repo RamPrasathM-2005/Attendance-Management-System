@@ -61,6 +61,16 @@ import {
   getBatchByDetails,
 } from "../../controllers/batchController.js";
 
+import {
+  getAllTimetableBatches,
+  getAllTimetableDepartments,
+  getTimetable,
+  createTimetableEntry,
+  updateTimetableEntry,
+  deleteTimetableEntry,
+  getTimetableByFilters,
+} from '../../controllers/timetableController.js';
+
 const router = express.Router();
 
 // Base API: http://localhost:4000/api/admin
@@ -129,5 +139,16 @@ router.get("/students/:rollnumber/enrolled-courses", getStudentEnrolledCourses);
 router.get("/batches/find", getBatchByDetails);
 router.route("/batches").get(getAllBatches).post(createBatch);
 router.route("/batches/:batchId").get(getBatchById).put(updateBatch).delete(deleteBatch);
+
+
+
+
+router.get('/timetable/batches', getAllTimetableBatches);
+router.get('/timetable/departments', getAllTimetableDepartments);
+router.get('/timetable/by-filters', getTimetableByFilters);
+router.get('/timetable/semester/:semesterId', getTimetable);
+router.post('/timetable/entry', createTimetableEntry);
+router.put('/timetable/entry/:timetableId', updateTimetableEntry);
+router.delete('/timetable/entry/:timetableId', deleteTimetableEntry);
 
 export default router;

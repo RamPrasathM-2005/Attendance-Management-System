@@ -1,42 +1,28 @@
-import React, { useState } from 'react';
-import { Search, Filter, Save, Edit, X, Clock, Coffee, UtensilsCrossed } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Filter, Save, Edit, X, Clock, Coffee, UtensilsCrossed } from 'lucide-react';
+import axios from 'axios';
+
+const API_BASE_URL = 'http://localhost:4000';
 
 const Timetable = () => {
-  // Sample data - replace with actual API calls
-  const [departments] = useState([
-    { id: 1, name: 'Computer Science Engineering', code: 'CSE' },
-    { id: 2, name: 'Electronics & Communication', code: 'ECE' },
-    { id: 3, name: 'Mechanical Engineering', code: 'MECH' },
-    { id: 4, name: 'Civil Engineering', code: 'CIVIL' }
-  ]);
-
-  const [semesters] = useState([
-    { id: 1, name: 'Semester 1', deptId: 1, batch: '2024-25' },
-    { id: 2, name: 'Semester 3', deptId: 1, batch: '2023-24' },
-    { id: 3, name: 'Semester 5', deptId: 1, batch: '2022-23' },
-    { id: 4, name: 'Semester 1', deptId: 2, batch: '2024-25' },
-    { id: 5, name: 'Semester 3', deptId: 2, batch: '2023-24' }
-  ]);
-
-  const [courses] = useState([
-    { id: 1, code: 'CS101', name: 'Programming Fundamentals', semId: 1, staff: 'Dr. Smith' },
-    { id: 2, code: 'CS102', name: 'Data Structures', semId: 1, staff: 'Prof. Johnson' },
-    { id: 3, code: 'CS103', name: 'Mathematics-I', semId: 1, staff: 'Dr. Brown' },
-    { id: 4, code: 'CS201', name: 'Database Systems', semId: 2, staff: 'Dr. Wilson' },
-    { id: 5, code: 'CS202', name: 'Operating Systems', semId: 2, staff: 'Prof. Davis' },
-    { id: 6, code: 'EC101', name: 'Circuit Analysis', semId: 4, staff: 'Dr. Miller' }
-  ]);
-
-  // State management
+  const [degrees, setDegrees] = useState([]);
+  const [batches, setBatches] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [semesters, setSemesters] = useState([]);
+  const [courses, setCourses] = useState([]);
+  const [timetableData, setTimetableData] = useState([]);
+  const [selectedDegree, setSelectedDegree] = useState('');
+  const [selectedBatch, setSelectedBatch] = useState('');
   const [selectedDept, setSelectedDept] = useState('');
   const [selectedSem, setSelectedSem] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
   const [editMode, setEditMode] = useState(false);
   const [selectedCell, setSelectedCell] = useState(null);
   const [showCourseModal, setShowCourseModal] = useState(false);
+  const [allocationMode, setAllocationMode] = useState(''); // 'select' or 'manual'
+  const [customCourseInput, setCustomCourseInput] = useState('');
+  const [error, setError] = useState(null);
 
-  // Timetable structure
-  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
   const periods = [
     { id: 1, name: 'Period 1', time: '9:00-9:50', type: 'class' },
     { id: 2, name: 'Period 2', time: '9:50-10:40', type: 'class' },
@@ -46,108 +32,247 @@ const Timetable = () => {
     { id: 6, name: 'Lunch Break', time: '12:30-1:30', type: 'lunch' },
     { id: 7, name: 'Period 5', time: '1:30-2:20', type: 'class' },
     { id: 8, name: 'Period 6', time: '2:20-3:10', type: 'class' },
-    { id: 9, name: 'Short Break', time: '3:10-3:20', type: 'break' },
-    { id: 10, name: 'Period 7', time: '3:20-4:10', type: 'class' },
-    { id: 11, name: 'Period 8', time: '4:10-5:00', type: 'class' }
   ];
 
-  // Main state for all timetable data
-  const [timetableData, setTimetableData] = useState({
-    1: { // Semester ID
-      'Monday-1': { course: 'CS101', courseName: 'Programming Fundamentals', staff: 'Dr. Smith' },
-      'Monday-2': { course: 'CS102', courseName: 'Data Structures', staff: 'Prof. Johnson' },
-      'Monday-4': { course: 'CS103', courseName: 'Mathematics-I', staff: 'Dr. Brown' },
-      'Tuesday-1': { course: 'CS102', courseName: 'Data Structures', staff: 'Prof. Johnson' },
-      'Tuesday-2': { course: 'CS101', courseName: 'Programming Fundamentals', staff: 'Dr. Smith' },
-      'Wednesday-1': { course: 'CS103', courseName: 'Mathematics-I', staff: 'Dr. Brown' },
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    } else {
+      setError('No authentication token found. Please log in.');
     }
-  });
+  }, []);
 
-  // Filter semesters based on selected department
-  const filteredSemesters = selectedDept 
-    ? semesters.filter(sem => sem.deptId === parseInt(selectedDept))
-    : [];
+  useEffect(() => {
+    const fetchDegrees = async () => {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/api/admin/timetable/batches`);
+        console.log('Batches API response:', response.data);
+        if (response.data && Array.isArray(response.data.data)) {
+          const uniqueDegrees = [...new Set(response.data.data.map(batch => batch.degree))];
+          setDegrees(uniqueDegrees);
+          setBatches(response.data.data);
+          setError(null);
+        } else {
+          throw new Error('Invalid response structure: data is not an array');
+        }
+      } catch (error) {
+        console.error('Error fetching degrees:', error);
+        console.log('Error details:', error.response?.data);
+        const errorMessage = error.response?.status === 401
+          ? 'Unauthorized: Please log in again.'
+          : error.response?.data?.message || 'Failed to load degrees. Please check the server.';
+        setError(errorMessage);
+        setDegrees([]);
+        setBatches([]);
+      }
+    };
+    fetchDegrees();
+  }, []);
 
-  // Filter courses based on selected semester
-  const availableCourses = selectedSem 
-    ? courses.filter(course => course.semId === parseInt(selectedSem))
-    : [];
-    
-  // **FIX 1: Define `currentTimetable` based on selected semester**
-  // This gets the specific timetable for the selected semester, or an empty object if none exists yet.
-  const currentTimetable = timetableData[selectedSem] || {};
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/api/admin/timetable/departments`);
+        console.log('Departments API response:', response.data);
+        if (response.data && Array.isArray(response.data.data)) {
+          setDepartments(response.data.data);
+          setError(null);
+        } else {
+          throw new Error('Invalid response structure: data is not an array');
+        }
+      } catch (error) {
+        console.error('Error fetching departments:', error);
+        console.log('Error details:', error.response?.data);
+        const errorMessage = error.response?.status === 401
+          ? 'Unauthorized: Please log in again.'
+          : error.response?.data?.message || 'Failed to load departments. Please check the server.';
+        setError(errorMessage);
+        setDepartments([]);
+      }
+    };
+    fetchDepartments();
+  }, []);
 
-  // **FIX 2: Define `getCourseSchedule` function**
-  // This function calculates how many periods a specific course is scheduled for.
-  const getCourseSchedule = (courseCode) => {
-    return Object.values(currentTimetable).filter(cell => cell.course === courseCode);
-  };
+  useEffect(() => {
+    if (selectedDegree && selectedBatch && selectedDept) {
+      const fetchSemesters = async () => {
+        try {
+          const selectedDepartment = departments.find(dept => dept.departmentId === parseInt(selectedDept));
+          const selectedBatchData = batches.find(batch => batch.batchId === parseInt(selectedBatch));
+          const branch = selectedBatchData ? selectedBatchData.branch : '';
+          const batchYear = selectedBatchData ? selectedBatchData.batch : '';
+          if (!branch || !batchYear || !selectedDepartment) {
+            throw new Error('Selected department or batch not found');
+          }
+          console.log('Sending request to:', `${API_BASE_URL}/api/admin/semesters/by-batch-branch`, {
+            degree: selectedDegree,
+            batch: batchYear,
+            branch: branch,
+          });
+          const response = await axios.get(`${API_BASE_URL}/api/admin/semesters/by-batch-branch`, {
+            params: { degree: selectedDegree, batch: batchYear, branch: branch },
+          });
+          console.log('Semesters API response:', response.data);
+          if (response.data && Array.isArray(response.data.data)) {
+            const uniqueSemesters = Array.from(
+              new Map(response.data.data.map(sem => [sem.semesterId, sem])).values()
+            );
+            setSemesters(uniqueSemesters);
+            setError(null);
+          } else {
+            throw new Error('Invalid response structure: data is not an array');
+          }
+        } catch (error) {
+          console.error('Error fetching semesters:', error);
+          console.log('Error details:', error.response?.data);
+          const errorMessage = error.response?.status === 400
+            ? `No semesters found for ${selectedDegree}, batch ${batches.find(b => b.batchId === parseInt(selectedBatch))?.batch || selectedBatch}, and department ${departments.find(d => d.departmentId === parseInt(selectedDept))?.departmentCode || selectedDept}.`
+            : error.response?.status === 401
+            ? 'Unauthorized: Please log in again.'
+            : error.response?.data?.message || 'Failed to load semesters. Please try again later.';
+          setError(errorMessage);
+          setSemesters([]);
+        }
+      };
+      fetchSemesters();
+    } else {
+      setSemesters([]);
+    }
+  }, [selectedDegree, selectedBatch, selectedDept, departments, batches]);
+
+  useEffect(() => {
+    if (selectedSem) {
+      const fetchCourses = async () => {
+        try {
+          const courseResponse = await axios.get(`${API_BASE_URL}/api/admin/semesters/${selectedSem}/courses`);
+          console.log('Courses API response:', courseResponse.data);
+          if (courseResponse.data && Array.isArray(courseResponse.data.data)) {
+            setCourses(courseResponse.data.data);
+          } else {
+            throw new Error('Invalid course response structure');
+          }
+          setError(null);
+        } catch (error) {
+          console.error('Error fetching courses:', error);
+          console.log('Error details:', error.response?.data);
+          const errorMessage = error.response?.status === 401
+            ? 'Unauthorized: Please log in again.'
+            : error.response?.data?.message || 'Failed to load courses. Please try again later.';
+          setError(errorMessage);
+          setCourses([]);
+        }
+      };
+      fetchCourses();
+    } else {
+      setCourses([]);
+    }
+  }, [selectedSem]);
+
+  useEffect(() => {
+    if (selectedSem) {
+      const fetchTimetable = async () => {
+        try {
+          const response = await axios.get(`${API_BASE_URL}/api/admin/timetable/semester/${selectedSem}`);
+          console.log('Timetable API response:', response.data);
+          if (response.data && Array.isArray(response.data.data)) {
+            setTimetableData(response.data.data);
+            setError(null);
+          } else {
+            throw new Error('Invalid timetable response structure');
+          }
+        } catch (error) {
+          console.error('Error fetching timetable:', error);
+          console.log('Error details:', error.response?.data);
+          const errorMessage = error.response?.status === 401
+            ? 'Unauthorized: Please log in again.'
+            : error.response?.status === 400
+            ? error.response.data.message
+            : error.response?.data?.message || 'Failed to load timetable. Please check the server logs.';
+          setError(errorMessage);
+          setTimetableData([]);
+        }
+      };
+      fetchTimetable();
+    } else {
+      setTimetableData([]);
+    }
+  }, [selectedSem]);
 
   const handleCellClick = (day, periodId, periodType) => {
     if (periodType !== 'class' || !editMode || !selectedSem) return;
-    
     setSelectedCell({ day, periodId });
+    setAllocationMode('');
+    setCustomCourseInput('');
     setShowCourseModal(true);
   };
 
-  const handleCourseAssign = (courseId) => {
-    if (!selectedCell || !selectedSem || !courseId) {
-        setShowCourseModal(false);
-        setSelectedCell(null);
-        return;
-    };
-    
-    const course = availableCourses.find(c => c.id === parseInt(courseId));
-    if (!course) return;
+  const handleCourseAssign = async (courseValue) => {
+    if (!selectedCell || !selectedSem || !courseValue) {
+      setShowCourseModal(false);
+      setSelectedCell(null);
+      return;
+    }
 
-    const cellKey = `${selectedCell.day}-${selectedCell.periodId}`;
-    
-    setTimetableData(prev => ({
-      ...prev,
-      [selectedSem]: {
-        // **FIX 3: Handle creation of a new timetable for a semester**
-        // `...(prev[selectedSem] || {})` prevents an error if `prev[selectedSem]` is undefined.
-        ...(prev[selectedSem] || {}),
-        [cellKey]: {
-          course: course.code,
-          courseName: course.name,
-          staff: course.staff,
-        }
+    try {
+      await axios.post(`${API_BASE_URL}/api/admin/timetable/entry`, {
+        courseCode: courseValue,
+        dayOfWeek: selectedCell.day,
+        periodNumber: selectedCell.periodId,
+        departmentId: selectedDept,
+        semesterId: selectedSem,
+      });
+
+      const response = await axios.get(`${API_BASE_URL}/api/admin/timetable/semester/${selectedSem}`);
+      if (response.data && Array.isArray(response.data.data)) {
+        setTimetableData(response.data.data);
       }
-    }));
-    
-    setShowCourseModal(false);
-    setSelectedCell(null);
+      setShowCourseModal(false);
+      setSelectedCell(null);
+      setAllocationMode('');
+      setCustomCourseInput('');
+      setError(null);
+    } catch (error) {
+      console.error('Error assigning course:', error);
+      console.log('Error details:', error.response?.data);
+      const errorMessage = error.response?.status === 401
+        ? 'Unauthorized: Please log in again.'
+        : error.response?.status === 400
+        ? error.response.data.message
+        : error.response?.data?.message || 'Failed to assign course';
+      setError(errorMessage);
+    }
   };
 
-  const handleRemoveCourse = (day, periodId) => {
-    if (!selectedSem) return;
-    
-    const cellKey = `${day}-${periodId}`;
-    setTimetableData(prev => {
-      // Create a new copy of the semester's timetable data
-      const newSemData = { ...(prev[selectedSem] || {}) };
-      // Delete the specific cell entry
-      delete newSemData[cellKey];
-      // Return the updated state
-      return {
-        ...prev,
-        [selectedSem]: newSemData
-      };
-    });
+  const handleRemoveCourse = async (timetableId) => {
+    try {
+      await axios.delete(`${API_BASE_URL}/api/admin/timetable/entry/${timetableId}`);
+      const response = await axios.get(`${API_BASE_URL}/api/admin/timetable/semester/${selectedSem}`);
+      if (response.data && Array.isArray(response.data.data)) {
+        setTimetableData(response.data.data);
+      }
+      setError(null);
+    } catch (error) {
+      console.error('Error removing course:', error);
+      console.log('Error details:', error.response?.data);
+      const errorMessage = error.response?.status === 401
+        ? 'Unauthorized: Please log in again.'
+        : error.response?.data?.message || 'Failed to remove course';
+      setError(errorMessage);
+    }
   };
 
   const renderPeriodHeader = (period) => {
     const icons = {
       break: <Coffee className="w-4 h-4" />,
       lunch: <UtensilsCrossed className="w-4 h-4" />,
-      class: <Clock className="w-4 h-4" />
+      class: <Clock className="w-4 h-4" />,
     };
 
     const bgColor = {
       break: 'bg-orange-50 text-orange-700',
       lunch: 'bg-green-50 text-green-700',
-      class: 'bg-blue-50 text-blue-700'
+      class: 'bg-blue-50 text-blue-700',
     };
 
     return (
@@ -170,8 +295,9 @@ const Timetable = () => {
       );
     }
 
-    const cellKey = `${day}-${period.id}`;
-    const cellData = currentTimetable[cellKey];
+    const cellData = timetableData.find(
+      entry => entry.dayOfWeek === day && entry.periodNumber === period.id
+    );
     const isSelected = selectedCell?.day === day && selectedCell?.periodId === period.id;
 
     return (
@@ -187,20 +313,18 @@ const Timetable = () => {
           <div className="h-full flex flex-col justify-between text-left">
             <div>
               <div className="font-semibold text-sm text-blue-900 mb-1 truncate">
-                {cellData.course}
+                {cellData.courseCode}
               </div>
-              <div className="text-xs text-gray-600 truncate" title={cellData.courseName}>
-                {cellData.courseName}
+              <div className="text-xs text-gray-600 truncate" title={cellData.courseTitle || cellData.courseCode}>
+                {cellData.courseTitle || cellData.courseCode}
+                {cellData.sectionName ? ` (${cellData.sectionName})` : ''}
               </div>
-            </div>
-            <div className="text-xs text-gray-500 mt-1 truncate">
-              {cellData.staff}
             </div>
             {editMode && (
               <button
                 onClick={(e) => {
-                  e.stopPropagation(); // Prevent cell click from firing
-                  handleRemoveCourse(day, period.id);
+                  e.stopPropagation();
+                  handleRemoveCourse(cellData.timetableId);
                 }}
                 className="absolute top-1 right-1 p-1 rounded-full bg-red-100 text-red-500 hover:bg-red-200 hover:text-red-700 opacity-50 hover:opacity-100 transition-opacity"
                 title="Remove course"
@@ -223,7 +347,12 @@ const Timetable = () => {
   return (
     <div className="p-6 bg-gray-50 min-h-screen font-sans">
       <div className="max-w-screen-xl mx-auto">
-        {/* Header */}
+        {error && (
+          <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg">
+            {error}
+          </div>
+        )}
+
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
             <h1 className="text-2xl font-bold text-gray-900">Timetable Management</h1>
@@ -253,8 +382,68 @@ const Timetable = () => {
             </div>
           </div>
 
-          {/* Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label htmlFor="degree-select" className="block text-sm font-medium text-gray-700 mb-2">
+                Degree
+              </label>
+              <select
+                id="degree-select"
+                value={selectedDegree}
+                onChange={(e) => {
+                  setSelectedDegree(e.target.value);
+                  setSelectedBatch('');
+                  setSelectedDept('');
+                  setSelectedSem('');
+                  setEditMode(false);
+                  setError(null);
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select Degree</option>
+                {degrees.length > 0 ? (
+                  degrees.map(degree => (
+                    <option key={degree} value={degree}>
+                      {degree}
+                    </option>
+                  ))
+                ) : (
+                  <option value="" disabled>No degrees available</option>
+                )}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="batch-select" className="block text-sm font-medium text-gray-700 mb-2">
+                Batch
+              </label>
+              <select
+                id="batch-select"
+                value={selectedBatch}
+                onChange={(e) => {
+                  setSelectedBatch(e.target.value);
+                  setSelectedDept('');
+                  setSelectedSem('');
+                  setEditMode(false);
+                  setError(null);
+                }}
+                disabled={!selectedDegree || departments.length === 0}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+              >
+                <option value="">Select Batch</option>
+                {batches
+                  .filter(batch => batch.degree === selectedDegree)
+                  .map(batch => {
+                    const dept = departments.find(d => d.departmentCode.toUpperCase() === batch.branch.toUpperCase());
+                    return (
+                      <option key={batch.batchId} value={batch.batchId}>
+                        {dept ? dept.departmentName : batch.branch} ({batch.batchYears})
+                      </option>
+                    );
+                  })}
+              </select>
+            </div>
+
             <div>
               <label htmlFor="dept-select" className="block text-sm font-medium text-gray-700 mb-2">
                 Department
@@ -265,16 +454,26 @@ const Timetable = () => {
                 onChange={(e) => {
                   setSelectedDept(e.target.value);
                   setSelectedSem('');
-                  setEditMode(false); // Exit edit mode when changing context
+                  setEditMode(false);
+                  setError(null);
                 }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={!selectedBatch}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
               >
                 <option value="">Select Department</option>
-                {departments.map(dept => (
-                  <option key={dept.id} value={dept.id}>
-                    {dept.name} ({dept.code})
-                  </option>
-                ))}
+                {departments
+                  .filter(dept => 
+                    batches.some(batch => 
+                      batch.degree === selectedDegree && 
+                      batch.batchId === parseInt(selectedBatch) && 
+                      batch.branch.toUpperCase() === dept.departmentCode.toUpperCase()
+                    )
+                  )
+                  .map(dept => (
+                    <option key={dept.departmentId} value={dept.departmentId}>
+                      {dept.departmentName} ({dept.departmentCode})
+                    </option>
+                  ))}
               </select>
             </div>
 
@@ -287,56 +486,41 @@ const Timetable = () => {
                 value={selectedSem}
                 onChange={(e) => {
                   setSelectedSem(e.target.value);
-                  setEditMode(false); // Exit edit mode when changing context
+                  setEditMode(false);
+                  setError(null);
                 }}
                 disabled={!selectedDept}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
               >
                 <option value="">Select Semester</option>
-                {filteredSemesters.map(sem => (
-                  <option key={sem.id} value={sem.id}>
-                    {sem.name} - {sem.batch}
-                  </option>
-                ))}
+                {semesters.length > 0 ? (
+                  semesters.map(sem => (
+                    <option key={sem.semesterId} value={sem.semesterId}>
+                      Semester {sem.semesterNumber} - {sem.batchYears}
+                    </option>
+                  ))
+                ) : (
+                  <option value="" disabled>No semesters available</option>
+                )}
               </select>
-            </div>
-
-            <div>
-              <label htmlFor="search-input" className="block text-sm font-medium text-gray-700 mb-2">
-                Search Courses
-              </label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <input
-                  id="search-input"
-                  type="text"
-                  placeholder="Feature coming soon..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  disabled // Search functionality can be added later
-                />
-              </div>
             </div>
           </div>
         </div>
 
-        {/* Timetable */}
         {selectedSem ? (
           <div className="bg-white rounded-lg shadow-sm overflow-hidden">
             <div className="p-4 bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
               <h2 className="text-lg font-semibold">
-                {departments.find(d => d.id === parseInt(selectedDept))?.name} - {' '}
-                {semesters.find(s => s.id === parseInt(selectedSem))?.name}
+                {departments.find(d => d.departmentId === parseInt(selectedDept))?.departmentName || 'Department'} -{' '}
+                Semester {semesters.find(s => s.semesterId === parseInt(selectedSem))?.semesterNumber || 'N/A'}
               </h2>
               <p className="text-blue-100 text-sm">
-                Batch: {semesters.find(s => s.id === parseInt(selectedSem))?.batch}
+                Degree: {selectedDegree || 'N/A'} | Batch: {batches.find(b => b.batchId === parseInt(selectedBatch))?.batchYears || 'N/A'} | Department Code: {departments.find(d => d.departmentId === parseInt(selectedDept))?.departmentCode || 'N/A'}
               </p>
             </div>
 
             <div className="overflow-x-auto">
-              <div className="grid grid-cols-[auto_repeat(11,minmax(150px,1fr))]">
-                {/* Header Row */}
+              <div className="grid grid-cols-[auto_repeat(8,minmax(150px,1fr))]">
                 <div className="sticky top-0 left-0 bg-gray-100 z-20 p-4 font-semibold text-gray-700 border-r border-b text-left whitespace-nowrap">
                   Day/Period
                 </div>
@@ -346,7 +530,6 @@ const Timetable = () => {
                   </div>
                 ))}
 
-                {/* Day Rows */}
                 {days.map(day => (
                   <React.Fragment key={day}>
                     <div className="sticky left-0 bg-gray-100 z-10 p-4 font-semibold text-gray-700 border-r border-b whitespace-nowrap">
@@ -365,72 +548,129 @@ const Timetable = () => {
         ) : (
           <div className="bg-white rounded-lg shadow-sm p-12 text-center">
             <Filter className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Select Department & Semester</h3>
-            <p className="text-gray-500">Choose a department and semester to view or create a timetable.</p>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Select Degree, Batch, Department & Semester</h3>
+            <p className="text-gray-500">Choose a degree, batch, department, and semester to view or create a timetable.</p>
           </div>
         )}
 
-        {/* Course Assignment Modal */}
         {showCourseModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 w-full max-w-md m-4">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-800">Assign Course</h3>
+                <h3 className="text-lg font-semibold text-gray-800">Assign Course or Activity</h3>
                 <button
-                  onClick={() => setShowCourseModal(false)}
+                  onClick={() => {
+                    setShowCourseModal(false);
+                    setAllocationMode('');
+                    setCustomCourseInput('');
+                    setError(null);
+                  }}
                   className="text-gray-500 hover:text-gray-800 transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              
               <div className="mb-4">
                 <p className="text-sm text-gray-600 mb-2 font-medium">
                   Assigning for: <span className="font-bold text-indigo-600">{selectedCell?.day}, {periods.find(p => p.id === selectedCell?.periodId)?.name}</span>
                 </p>
                 <select
-                  defaultValue=""
-                  onChange={(e) => handleCourseAssign(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  id="allocation-mode"
+                  value={allocationMode}
+                  onChange={(e) => {
+                    setAllocationMode(e.target.value);
+                    setCustomCourseInput('');
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
                 >
-                  <option value="" disabled>Select a course...</option>
-                  {availableCourses.map(course => (
-                    <option key={course.id} value={course.id}>
-                      {course.code} - {course.name} ({course.staff})
-                    </option>
-                  ))}
+                  <option value="" disabled>Select allocation method...</option>
+                  <option value="select">Select Course</option>
+                  <option value="manual">Manual Entry</option>
                 </select>
-                {availableCourses.length === 0 && (
-                    <p className="text-sm text-red-600 mt-2">No courses available for this semester. Please add courses first.</p>
+
+                {allocationMode === 'select' && (
+                  <select
+                    id="course-select"
+                    value={customCourseInput}
+                    onChange={(e) => setCustomCourseInput(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
+                  >
+                    <option value="" disabled>Select a course...</option>
+                    {courses.length > 0 ? (
+                      courses.map(course => (
+                        <option key={course.courseId} value={course.courseCode}>
+                          {course.courseCode} - {course.courseTitle}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="" disabled>No courses available</option>
+                    )}
+                  </select>
+                )}
+
+                {allocationMode === 'manual' && (
+                  <input
+                    type="text"
+                    placeholder="Enter activity (e.g., Guest Lecture)"
+                    value={customCourseInput}
+                    onChange={(e) => setCustomCourseInput(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
+                  />
+                )}
+
+                <button
+                  onClick={() => handleCourseAssign(customCourseInput)}
+                  disabled={!customCourseInput || !allocationMode}
+                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                >
+                  Assign
+                </button>
+                {(!customCourseInput || !allocationMode) && (
+                  <p className="text-sm text-red-600 mt-2">
+                    {allocationMode ? 'Please enter or select a course/activity.' : 'Please select an allocation method.'}
+                  </p>
                 )}
               </div>
             </div>
           </div>
         )}
 
-        {/* Available Courses Summary */}
         {selectedSem && (
           <div className="mt-6 bg-white rounded-lg shadow-sm p-6">
             <h3 className="text-lg font-semibold mb-4 text-gray-800">Courses for this Semester</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {availableCourses.map(course => {
-                const schedule = getCourseSchedule(course.code);
-                return (
-                  <div key={course.id} className="p-4 border rounded-lg hover:shadow-md transition-shadow bg-gray-50">
-                    <div className="font-semibold text-blue-900">{course.code}</div>
-                    <div className="text-sm text-gray-700 mb-1">{course.name}</div>
-                    <div className="text-xs text-gray-500 mb-2">Staff: {course.staff}</div>
-                    
-                    <div className={`flex items-center gap-2 text-xs font-medium p-2 rounded-md ${schedule.length > 0 ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+              {courses.length > 0 ? (
+                courses.map(course => {
+                  const scheduleCount = timetableData.filter(entry => entry.courseCode === course.courseCode).length;
+                  return (
+                    <div key={course.courseId} className="p-4 border rounded-lg hover:shadow-md transition-shadow bg-gray-50">
+                      <div className="font-semibold text-blue-900">{course.courseCode}</div>
+                      <div className="text-sm text-gray-700 mb-1">{course.courseTitle}</div>
+                      <div className={`flex items-center gap-2 text-xs font-medium p-2 rounded-md ${scheduleCount > 0 ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
                         <Clock className="w-3.5 h-3.5" />
-                        <span>{schedule.length > 0 ? `${schedule.length} periods scheduled` : 'Not scheduled'}</span>
+                        <span>{scheduleCount > 0 ? `${scheduleCount} periods scheduled` : 'Not scheduled'}</span>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="text-gray-500 col-span-full">No courses available for this semester.</p>
+              )}
+            </div>
+            <h3 className="text-lg font-semibold mt-6 mb-4 text-gray-800">Scheduled Activities</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {timetableData
+                .filter(entry => !courses.some(course => course.courseCode === entry.courseCode))
+                .map(entry => (
+                  <div key={entry.timetableId} className="p-4 border rounded-lg hover:shadow-md transition-shadow bg-gray-50">
+                    <div className="font-semibold text-blue-900">{entry.courseCode}</div>
+                    <div className="text-sm text-gray-700 mb-1">{entry.courseCode}</div>
+                    <div className="text-xs text-gray-600">
+                      {entry.dayOfWeek}, Period {entry.periodNumber}
+                      {entry.sectionName ? ` (${entry.sectionName})` : ''}
                     </div>
                   </div>
-                );
-              })}
-               {availableCourses.length === 0 && (
-                  <p className="text-gray-500 col-span-full">No courses have been defined for this semester.</p>
-                )}
+                ))}
             </div>
           </div>
         )}

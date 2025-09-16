@@ -2,7 +2,7 @@ import pool from "../db.js";
 import catchAsync from "../utils/catchAsync.js";
 
 // Valid enum values
-const validTypes = ['THEORY', 'PRACTICAL', 'INTEGRATED', 'PROJECT'];
+const validTypes = ['THEORY', 'PRACTICAL', 'INTEGRATED', 'EXPERIENTIAL LEARNING'];
 const validCategories = ['BSC', 'ESC', 'PEC', 'OEC', 'EEC', 'HSMC'];
 const validIsActive = ['YES', 'NO'];
 

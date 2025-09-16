@@ -22,7 +22,7 @@ const Timetable = () => {
   const [customCourseInput, setCustomCourseInput] = useState('');
   const [error, setError] = useState(null);
 
-  const days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+  const days = ['MON', 'TUE', 'WED', 'THU', 'FRI'];
   const periods = [
     { id: 1, name: 'Period 1', time: '9:15-10:05', type: 'class' },
     { id: 2, name: 'Period 2', time: '10:05-10:55', type: 'class' },
@@ -237,9 +237,7 @@ const Timetable = () => {
     }
 
     try {
-      // Map frontend periodId to backend periodNumber (excluding breaks)
       const backendPeriodNumber = getBackendPeriod(selectedCell.periodId);
-
       await axios.post(`${API_BASE_URL}/api/admin/timetable/entry`, {
         courseCode: courseValue,
         dayOfWeek: selectedCell.day,
@@ -301,10 +299,10 @@ const Timetable = () => {
     };
 
     return (
-      <div className={`p-3 text-center font-medium border-r ${bgColor[period.type]} min-h-[96px] flex flex-col justify-center`}>
-        <div className="flex items-center justify-center gap-2 mb-1">
+      <div className={`p-2 text-center font-medium border-r ${bgColor[period.type]} min-h-[96px] flex flex-col justify-center truncate`}>
+        <div className="flex items-center justify-center gap-1 mb-1">
           {icons[period.type]}
-          <span className="text-sm">{period.name}</span>
+          <span className="text-xs">{period.name}</span>
         </div>
         <div className="text-xs">{period.time}</div>
       </div>
@@ -314,13 +312,12 @@ const Timetable = () => {
   const renderTimetableCell = (day, period) => {
     if (period.type !== 'class') {
       return (
-        <div className="p-3 h-24 bg-gray-100 text-center text-gray-500 border-r flex items-center justify-center">
+        <div className="p-2 h-24 bg-gray-100 text-center text-gray-500 border-r flex items-center justify-center">
           {period.type === 'break' ? '☕' : '🍽️'}
         </div>
       );
     }
 
-    // Map backend periodNumber to frontend id for matching
     const cellData = timetableData.find(
       entry => entry.dayOfWeek === day && getFrontendId(entry.periodNumber) === period.id
     );
@@ -328,7 +325,7 @@ const Timetable = () => {
 
     return (
       <div
-        className={`relative p-3 h-24 border-r transition-all duration-200 ${
+        className={`relative p-2 h-24 border-r transition-all duration-200 ${
           editMode ? 'cursor-pointer hover:bg-blue-50' : 'cursor-default'
         } ${isSelected ? 'bg-blue-100 ring-2 ring-blue-500 z-10' : ''} ${
           cellData ? 'bg-white' : 'bg-gray-50'
@@ -338,7 +335,7 @@ const Timetable = () => {
         {cellData ? (
           <div className="h-full flex flex-col justify-between text-left">
             <div>
-              <div className="font-semibold text-sm text-blue-900 mb-1 truncate">
+              <div className="font-semibold text-xs text-blue-900 mb-1 truncate">
                 {cellData.courseCode}
               </div>
               <div className="text-xs text-gray-600 truncate" title={cellData.courseTitle || cellData.courseCode}>
@@ -371,7 +368,7 @@ const Timetable = () => {
   };
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen font-sans">
+    <div className="p-6 bg-gray-50 min-h-screen font-sans overflow-x-hidden">
       <div className="max-w-screen-xl mx-auto">
         {error && (
           <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg">
@@ -545,20 +542,20 @@ const Timetable = () => {
               </p>
             </div>
 
-            <div className="overflow-x-auto">
-              <div className="grid grid-cols-[auto_repeat(11,minmax(150px,1fr))]">
-                <div className="sticky top-0 left-0 bg-gray-100 z-20 p-4 font-semibold text-gray-700 border-r border-b text-left whitespace-nowrap">
+            <div className="w-full max-w-full overflow-x-auto">
+              <div className="grid grid-cols-[100px_repeat(11,minmax(120px,1fr))] min-w-max">
+                <div className="sticky top-0 left-0 bg-gray-100 z-20 p-2 font-semibold text-gray-700 border-r border-b text-left whitespace-nowrap">
                   Day/Period
                 </div>
                 {periods.map(period => (
-                  <div key={period.id} className="sticky top-0 bg-gray-50 z-10 border-b min-w-[150px]">
+                  <div key={period.id} className="sticky top-0 bg-gray-50 z-10 border-b">
                     {renderPeriodHeader(period)}
                   </div>
                 ))}
 
                 {days.map(day => (
                   <React.Fragment key={day}>
-                    <div className="sticky left-0 bg-gray-100 z-10 p-4 font-semibold text-gray-700 border-r border-b whitespace-nowrap">
+                    <div className="sticky left-0 bg-gray-100 z-10 p-2 font-semibold text-gray-700 border-r border-b whitespace-nowrap">
                       {day}
                     </div>
                     {periods.map(period => (

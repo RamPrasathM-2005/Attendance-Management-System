@@ -16,8 +16,8 @@ import ResetPassword from "./pages/auth/ResetPassword"; // New
 // Admin Pages
 import AdminDashboard from "./pages/admin/Dashboard";
 import ManageSemesters from "./pages/admin/ManageSemesters/ManageSemsters";
-import ManageCourses from "./pages/admin/ManageCourses";
-import ManageStaff from "./pages/admin/ManageStaff";
+import ManageCourses from "./pages/admin/ManageCourses/ManageCourses";
+import ManageStaff from "./pages/admin/ManageStaffs/ManageStaff";
 import ManageStudents from "./pages/admin/ManageStudents";
 import Timetable from "./pages/admin/Timetable";
 

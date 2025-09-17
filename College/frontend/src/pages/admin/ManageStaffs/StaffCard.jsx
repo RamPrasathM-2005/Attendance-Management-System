@@ -1,3 +1,4 @@
+// src/components/StaffCard.js
 import React from 'react';
 import { Users, BookOpen, UserPlus, Trash2, ChevronDown, ChevronUp, Edit2 } from 'lucide-react';
 

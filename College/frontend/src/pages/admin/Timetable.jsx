@@ -292,14 +292,8 @@ const Timetable = () => {
       class: <Clock className="w-4 h-4" />,
     };
 
-    const bgColor = {
-      break: 'bg-orange-50 text-orange-700',
-      lunch: 'bg-green-50 text-green-700',
-      class: 'bg-blue-50 text-blue-700',
-    };
-
     return (
-      <div className={`p-2 text-center font-medium border-r ${bgColor[period.type]} min-h-[96px] flex flex-col justify-center truncate`}>
+      <div className="p-2 text-center font-medium border-r bg-gray-50 text-gray-500 min-h-[96px] flex flex-col justify-center truncate">
         <div className="flex items-center justify-center gap-1 mb-1">
           {icons[period.type]}
           <span className="text-xs">{period.name}</span>
@@ -335,7 +329,7 @@ const Timetable = () => {
         {cellData ? (
           <div className="h-full flex flex-col justify-between text-left">
             <div>
-              <div className="font-semibold text-xs text-blue-900 mb-1 truncate">
+              <div className="font-semibold text-xs text-gray-900 mb-1 truncate">
                 {cellData.courseCode}
               </div>
               <div className="text-xs text-gray-600 truncate" title={cellData.courseTitle || cellData.courseCode}>
@@ -368,26 +362,28 @@ const Timetable = () => {
   };
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen font-sans overflow-x-hidden">
-      <div className="max-w-screen-xl mx-auto">
+    <div className="p-6 max-w-7xl mx-auto bg-gray-50 min-h-screen font-sans">
+      <div>
         {error && (
-          <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg">
+          <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-center">
             {error}
+            <button
+              onClick={() => setError(null)}
+              className="ml-4 px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              Dismiss
+            </button>
           </div>
         )}
 
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-            <h1 className="text-2xl font-bold text-gray-900">Timetable Management</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Timetable Management</h1>
             <div className="flex items-center gap-3">
               {selectedSem && (
                 <button
                   onClick={() => setEditMode(!editMode)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-                    editMode
-                      ? 'bg-green-600 text-white hover:bg-green-700'
-                      : 'bg-blue-600 text-white hover:bg-blue-700'
-                  }`}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
                 >
                   {editMode ? (
                     <>
@@ -421,7 +417,7 @@ const Timetable = () => {
                   setEditMode(false);
                   setError(null);
                 }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">Select Degree</option>
                 {degrees.length > 0 ? (
@@ -451,7 +447,7 @@ const Timetable = () => {
                   setError(null);
                 }}
                 disabled={!selectedDegree || departments.length === 0}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
               >
                 <option value="">Select Batch</option>
                 {batches
@@ -481,7 +477,7 @@ const Timetable = () => {
                   setError(null);
                 }}
                 disabled={!selectedBatch}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
               >
                 <option value="">Select Department</option>
                 {departments
@@ -513,7 +509,7 @@ const Timetable = () => {
                   setError(null);
                 }}
                 disabled={!selectedDept}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
               >
                 <option value="">Select Semester</option>
                 {semesters.length > 0 ? (
@@ -532,34 +528,34 @@ const Timetable = () => {
 
         {selectedSem ? (
           <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-            <div className="p-4 bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
-              <h2 className="text-lg font-semibold">
+            <div className="p-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">
                 {departments.find(d => d.departmentId === parseInt(selectedDept))?.departmentName || 'Department'} -{' '}
                 Semester {semesters.find(s => s.semesterId === parseInt(selectedSem))?.semesterNumber || 'N/A'}
               </h2>
-              <p className="text-blue-100 text-sm">
+              <p className="text-sm text-gray-500">
                 Degree: {selectedDegree || 'N/A'} | Batch: {batches.find(b => b.batchId === parseInt(selectedBatch))?.batchYears || 'N/A'} | Department Code: {departments.find(d => d.departmentId === parseInt(selectedDept))?.departmentCode || 'N/A'}
               </p>
             </div>
 
-            <div className="w-full max-w-full overflow-x-auto">
-              <div className="grid grid-cols-[100px_repeat(11,minmax(120px,1fr))] min-w-max">
-                <div className="sticky top-0 left-0 bg-gray-100 z-20 p-2 font-semibold text-gray-700 border-r border-b text-left whitespace-nowrap">
+            <div className="overflow-x-auto">
+              <div className="grid grid-cols-[140px_repeat(11,minmax(120px,120px))] min-w-[1400px]">
+                <div className="sticky top-0 left-0 bg-gray-100 z-30 p-2 font-semibold text-gray-700 border-r border-b text-left whitespace-nowrap">
                   Day/Period
                 </div>
                 {periods.map(period => (
-                  <div key={period.id} className="sticky top-0 bg-gray-50 z-10 border-b">
+                  <div key={period.id} className="sticky top-0 bg-gray-50 z-10 border-b border-r">
                     {renderPeriodHeader(period)}
                   </div>
                 ))}
 
                 {days.map(day => (
                   <React.Fragment key={day}>
-                    <div className="sticky left-0 bg-gray-100 z-10 p-2 font-semibold text-gray-700 border-r border-b whitespace-nowrap">
+                    <div className="sticky left-0 bg-gray-100 z-20 p-2 font-semibold text-gray-700 border-r border-b whitespace-nowrap">
                       {day}
                     </div>
                     {periods.map(period => (
-                      <div key={`${day}-${period.id}`} className="relative border-b">
+                      <div key={`${day}-${period.id}`} className="border-b border-r">
                         {renderTimetableCell(day, period)}
                       </div>
                     ))}
@@ -569,8 +565,8 @@ const Timetable = () => {
             </div>
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-            <Filter className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <div className="bg-white rounded-lg shadow-sm p-8 text-center">
+            <Filter className="w-12 h-12 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">Select Degree, Batch, Department & Semester</h3>
             <p className="text-gray-500">Choose a degree, batch, department, and semester to view or create a timetable.</p>
           </div>
@@ -578,9 +574,9 @@ const Timetable = () => {
 
         {showCourseModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md m-4">
+            <div className="bg-white rounded-lg shadow-sm p-6 w-full max-w-md m-4">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-800">Assign Course or Activity</h3>
+                <h3 className="text-lg font-semibold text-gray-900">Assign Course or Activity</h3>
                 <button
                   onClick={() => {
                     setShowCourseModal(false);
@@ -595,7 +591,7 @@ const Timetable = () => {
               </div>
               <div className="mb-4">
                 <p className="text-sm text-gray-600 mb-2 font-medium">
-                  Assigning for: <span className="font-bold text-indigo-600">{selectedCell?.day}, {periods.find(p => p.id === selectedCell?.periodId)?.name}</span>
+                  Assigning for: <span className="font-semibold text-blue-600">{selectedCell?.day}, {periods.find(p => p.id === selectedCell?.periodId)?.name}</span>
                 </p>
                 <select
                   id="allocation-mode"
@@ -604,7 +600,7 @@ const Timetable = () => {
                     setAllocationMode(e.target.value);
                     setCustomCourseInput('');
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-3"
                 >
                   <option value="" disabled>Select allocation method...</option>
                   <option value="select">Select Course</option>
@@ -616,7 +612,7 @@ const Timetable = () => {
                     id="course-select"
                     value={customCourseInput}
                     onChange={(e) => setCustomCourseInput(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-3"
                   >
                     <option value="" disabled>Select a course...</option>
                     {courses.length > 0 ? (
@@ -637,14 +633,14 @@ const Timetable = () => {
                     placeholder="Enter activity (e.g., Guest Lecture)"
                     value={customCourseInput}
                     onChange={(e) => setCustomCourseInput(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-3"
                   />
                 )}
 
                 <button
                   onClick={() => handleCourseAssign(customCourseInput)}
                   disabled={!customCourseInput || !allocationMode}
-                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
                 >
                   Assign
                 </button>
@@ -660,15 +656,15 @@ const Timetable = () => {
 
         {selectedSem && (
           <div className="mt-6 bg-white rounded-lg shadow-sm p-6">
-            <h3 className="text-lg font-semibold mb-4 text-gray-800">Courses for this Semester</h3>
+            <h3 className="text-lg font-semibold mb-4 text-gray-900">Courses for this Semester</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {courses.length > 0 ? (
                 courses.map(course => {
                   const scheduleCount = timetableData.filter(entry => entry.courseCode === course.courseCode).length;
                   return (
-                    <div key={course.courseId} className="p-4 border rounded-lg hover:shadow-md transition-shadow bg-gray-50">
-                      <div className="font-semibold text-blue-900">{course.courseCode}</div>
-                      <div className="text-sm text-gray-700 mb-1">{course.courseTitle}</div>
+                    <div key={course.courseId} className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow bg-white">
+                      <div className="font-semibold text-gray-900">{course.courseCode}</div>
+                      <div className="text-sm text-gray-600 mb-1">{course.courseTitle}</div>
                       <div className={`flex items-center gap-2 text-xs font-medium p-2 rounded-md ${scheduleCount > 0 ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
                         <Clock className="w-3.5 h-3.5" />
                         <span>{scheduleCount > 0 ? `${scheduleCount} periods scheduled` : 'Not scheduled'}</span>
@@ -680,14 +676,14 @@ const Timetable = () => {
                 <p className="text-gray-500 col-span-full">No courses available for this semester.</p>
               )}
             </div>
-            <h3 className="text-lg font-semibold mt-6 mb-4 text-gray-800">Scheduled Activities</h3>
+            <h3 className="text-lg font-semibold mt-6 mb-4 text-gray-900">Scheduled Activities</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {timetableData
                 .filter(entry => !courses.some(course => course.courseCode === entry.courseCode))
                 .map(entry => (
-                  <div key={entry.timetableId} className="p-4 border rounded-lg hover:shadow-md transition-shadow bg-gray-50">
-                    <div className="font-semibold text-blue-900">{entry.courseCode}</div>
-                    <div className="text-sm text-gray-700 mb-1">{entry.courseCode}</div>
+                  <div key={entry.timetableId} className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow bg-white">
+                    <div className="font-semibold text-gray-900">{entry.courseCode}</div>
+                    <div className="text-sm text-gray-600 mb-1">{entry.courseCode}</div>
                     <div className="text-xs text-gray-600">
                       {entry.dayOfWeek}, {getPeriodName(entry.periodNumber)}
                       {entry.sectionName ? ` (${entry.sectionName})` : ''}

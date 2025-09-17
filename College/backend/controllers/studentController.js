@@ -186,7 +186,7 @@ export const getSemesters = catchAsync(async (req, res) => {
   }
   res.status(200).json({
     status: "success",
-    data: rows.map((row) => `S${row.semesterNumber}`),
+    data: rows.map((row) => `Semester  ${row.semesterNumber}`),
   });
 });
 

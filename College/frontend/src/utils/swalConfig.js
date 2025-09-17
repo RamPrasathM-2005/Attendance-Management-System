@@ -30,6 +30,19 @@ export const showSuccessToast = (text) => {
   });
 };
 
+export const showInfoToast = (title, text) => {
+  MySwal.fire({
+    icon: 'info',
+    title,
+    text,
+    timer: 3000,
+    showConfirmButton: false,
+    toast: true,
+    position: 'top-end',
+    customClass: { popup: 'swal-toast' },
+  });
+};
+
 export const showConfirmToast = (title, text, icon, confirmButtonText, cancelButtonText) => {
   return MySwal.fire({
     title,

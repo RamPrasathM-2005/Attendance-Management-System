@@ -18,7 +18,7 @@ import AdminDashboard from "./pages/admin/Dashboard";
 import ManageSemesters from "./pages/admin/ManageSemesters/ManageSemsters";
 import ManageCourses from "./pages/admin/ManageCourses/ManageCourses";
 import ManageStaff from "./pages/admin/ManageStaffs/ManageStaff";
-import ManageStudents from "./pages/admin/ManageStudents";
+import ManageStudents from "./pages/admin/ManageStudents/ManageStudents";
 import Timetable from "./pages/admin/Timetable";
 
 // Staff Pages

@@ -1,48 +1,25 @@
 import React from "react";
 
 const MarksSummary = ({ courseOutcomes, students, calculateCOMarks, calculateInternalMarks }) => {
-  if (!courseOutcomes.some((co) => co.tools.length > 0)) {
-    return null;
-  }
-
   return (
-    <div className="mt-8 bg-white rounded-lg shadow-md p-6">
-      <h3 className="text-lg font-medium text-gray-900 mb-4">Marks Summary</h3>
-      <div className="overflow-x-auto">
-        <table className="min-w-full text-sm text-gray-900">
-          <thead>
-            <tr className="border-b border-gray-200">
-              <th className="text-left py-3">Roll No</th>
-              <th className="text-left py-3">Student Name</th>
-              {courseOutcomes.map((co) => (
-                <th key={co.coId} className="text-center py-3">
-                  {co.coNumber}
-                  <br />
-                  <span className="text-xs text-gray-500">({co.weightage}%)</span>
-                </th>
-              ))}
-              <th className="text-center py-3">Internal Marks</th>
-            </tr>
-          </thead>
-          <tbody>
-            {students.map((student) => (
-              <tr key={student.rollnumber} className="border-b border-gray-100">
-                <td className="py-3">{student.rollnumber}</td>
-                <td className="py-3">{student.name}</td>
-                {courseOutcomes.map((co) => (
-                  <td key={co.coId} className="text-center py-3">
-                    {calculateCOMarks(co, student.rollnumber)}
-                  </td>
-                ))}
-                <td className="text-center py-3 font-medium text-blue-600">
-                  {calculateInternalMarks(student.rollnumber)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <table className="w-full mt-8">
+      <thead>
+        <tr>
+          <th>Reg No</th>
+          <th>Name</th>
+          {courseOutcomes.map((co) => <th key={co.coId}>{co.coNumber}</th>)}
+        </tr>
+      </thead>
+      <tbody>
+        {students.map((student) => (
+          <tr key={student.rollnumber}>
+            <td>{student.rollnumber}</td>
+            <td>{student.name}</td>
+            {courseOutcomes.map((co) => <td key={co.coId}>{calculateCOMarks(student.rollnumber, co.coId)}</td>)}
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 };
 

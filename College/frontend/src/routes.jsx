@@ -1,4 +1,3 @@
-// src/routes.jsx
 import React from "react";
 import { Navigate } from "react-router-dom";
 import { isAuthenticated, getUserRole } from "./utils/auth";
@@ -10,8 +9,8 @@ import StaffLayout from "./layouts/StaffLayout";
 // Auth Pages
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
-import ForgotPassword from "./pages/auth/ForgotPassword"; // New
-import ResetPassword from "./pages/auth/ResetPassword"; // New
+import ForgotPassword from "./pages/auth/ForgotPassword";
+import ResetPassword from "./pages/auth/ResetPassword";
 
 // Admin Pages
 import AdminDashboard from "./pages/admin/Dashboard";
@@ -25,8 +24,8 @@ import Timetable from "./pages/admin/Timetable";
 import StaffDashboard from "./pages/staff/Dashboard";
 import Attendance from "./pages/staff/Attendance";
 import MarksAllocation from "./pages/staff/MarksAllocation";
-import Reports from "./pages/staff/Reports";
 import Options from "./pages/staff/Options";
+import InternalMarks from "./pages/staff/InternalMarks";
 
 // NotFound
 import NotFound from "./pages/NotFound";
@@ -51,8 +50,8 @@ const routes = [
   // Auth
   { path: "/login", element: <Login /> },
   { path: "/register", element: <Register /> },
-  { path: "/forgot-password", element: <ForgotPassword /> }, // New
-  { path: "/reset-password/:token", element: <ResetPassword /> }, // New
+  { path: "/forgot-password", element: <ForgotPassword /> },
+  { path: "/reset-password/:token", element: <ResetPassword /> },
 
   // Admin Routes
   {
@@ -85,12 +84,11 @@ const routes = [
     children: [
       { index: true, element: <StaffDashboard /> },
       { path: "dashboard", element: <StaffDashboard /> },
-      { path: "attendance", element: <Attendance /> },
       { path: "marks-allocation", element: <MarksAllocation /> },
-      { path: "reports", element: <Reports /> },
       { path: "options/:courseId", element: <Options /> },
-      { path: "marks-allocation/:courseId", element: <MarksAllocation /> },
-      { path: "attendance/:courseId", element: <Attendance /> },
+      { path: "marks-allocation/:courseId/:sectionId", element: <MarksAllocation /> }, // Added /:sectionId
+      { path: "attendance/", element: <Attendance /> },
+      { path: "internal-marks/:courseId", element: <InternalMarks /> },
       { path: "*", element: <NotFound /> }
     ]
   },

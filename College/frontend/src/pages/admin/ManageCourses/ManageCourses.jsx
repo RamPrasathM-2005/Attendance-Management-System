@@ -53,20 +53,69 @@ const ManageCourses = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
+      // Fetch semesters
       const semRes = await axios.get(`${API_BASE}/semesters`);
       setSemesters(semRes.data.data || []);
 
+      // Fetch courses
       const courseRes = await axios.get(`${API_BASE}/courses`);
       let allCourses = courseRes.data.data || [];
 
+      // Map semester details to courses
       allCourses = allCourses.map(course => {
         const semester = semRes.data.data.find(s => s.semesterId === course.semesterId);
         return { ...course, semesterDetails: semester };
       });
-
       allCourses.sort((a, b) => b.courseId - a.courseId);
       setCourses(allCourses);
 
+      // Fetch sections for all courses
+      const sectionsData = {};
+      for (const course of allCourses) {
+        try {
+          const sectionRes = await axios.get(`${API_BASE}/courses/${course.courseCode}/sections`);
+          console.log(`Section API response for course ${course.courseCode}:`, sectionRes.data);
+          if (sectionRes.data?.status === 'success' && Array.isArray(sectionRes.data.data)) {
+            const batches = sectionRes.data.data.reduce((acc, section) => {
+              if (section.sectionName) {
+                const normalizedName = section.sectionName.replace('BatchBatch', 'Batch');
+                acc[normalizedName] = [];
+              }
+              return acc;
+            }, {});
+            sectionsData[String(course.courseId)] = batches;
+
+            // Fetch staff allocations for each section
+            const staffRes = await axios.get(`${API_BASE}/courses/${course.courseId}/staff`);
+            console.log(`Staff API response for course ${course.courseId}:`, staffRes.data);
+            if (staffRes.data?.status === 'success' && Array.isArray(staffRes.data.data)) {
+              staffRes.data.data.forEach(alloc => {
+                const normalizedName = alloc.sectionName.replace('BatchBatch', 'Batch');
+                if (batches[normalizedName]) {
+                  batches[normalizedName].push({
+                    staffId: alloc.staffId,
+                    staffName: alloc.staffName,
+                    staffCourseId: alloc.staffCourseId,
+                    sectionId: alloc.sectionId,
+                    sectionName: normalizedName,
+                    departmentId: alloc.departmentId,
+                    departmentName: alloc.departmentName,
+                  });
+                }
+              });
+            }
+          } else {
+            sectionsData[String(course.courseId)] = {};
+          }
+        } catch (err) {
+          console.error(`Error fetching sections for course ${course.courseCode}:`, err);
+          sectionsData[String(course.courseId)] = {};
+        }
+      }
+      setSections(sectionsData);
+      console.log('Initial sections state:', sectionsData);
+
+      // Fetch staff list
       const usersRes = await axios.get(`${API_BASE}/users`);
       let staffData = usersRes.data.data.filter(user => user.departmentId);
       staffData = staffData.map(user => ({
@@ -79,7 +128,7 @@ const ManageCourses = () => {
         index === self.findIndex(s => s.id === staff.id)
       );
       setStaffList(uniqueStaff);
-      toast.success('Fetched all staff successfully');
+      toast.success('Fetched all data successfully');
     } catch (err) {
       setError('Failed to fetch data');
       console.error(err);
@@ -107,30 +156,35 @@ const ManageCourses = () => {
       }
 
       const sectionRes = await axios.get(`${API_BASE}/courses/${course.courseCode}/sections`);
+      console.log(`Section API response for course ${course.courseCode}:`, sectionRes.data);
       if (sectionRes.data?.status !== 'success' || !Array.isArray(sectionRes.data.data)) {
         toast.error('Failed to fetch sections or invalid response');
         console.error('Invalid section response:', sectionRes.data);
-        setSections(prev => ({ ...prev, [courseId]: {} }));
+        setSections(prev => ({ ...prev, [String(courseId)]: {} }));
         return;
       }
 
       const batches = sectionRes.data.data.reduce((acc, section) => {
         if (section.sectionName) {
-          acc[section.sectionName] = [];
+          const normalizedName = section.sectionName.replace('BatchBatch', 'Batch');
+          acc[normalizedName] = [];
         }
         return acc;
       }, {});
+      console.log(`Processed batches for course ${courseId}:`, batches);
 
       const staffRes = await axios.get(`${API_BASE}/courses/${courseId}/staff`);
+      console.log(`Staff API response for course ${courseId}:`, staffRes.data);
       if (staffRes.data?.status === 'success' && Array.isArray(staffRes.data.data)) {
         staffRes.data.data.forEach(alloc => {
-          if (batches[alloc.sectionName]) {
-            batches[alloc.sectionName].push({
+          const normalizedName = alloc.sectionName.replace('BatchBatch', 'Batch');
+          if (batches[normalizedName]) {
+            batches[normalizedName].push({
               staffId: alloc.staffId,
               staffName: alloc.staffName,
               staffCourseId: alloc.staffCourseId,
               sectionId: alloc.sectionId,
-              sectionName: alloc.sectionName,
+              sectionName: normalizedName,
               departmentId: alloc.departmentId,
               departmentName: alloc.departmentName,
             });
@@ -141,7 +195,11 @@ const ManageCourses = () => {
         console.error('Invalid staff response:', staffRes.data);
       }
 
-      setSections(prev => ({ ...prev, [courseId]: batches }));
+      setSections(prev => {
+        const updatedSections = { ...prev, [String(courseId)]: batches };
+        console.log('Updated sections state:', updatedSections);
+        return updatedSections;
+      });
       setSelectedCourse(prev => ({
         ...prev,
         courseId,
@@ -152,7 +210,7 @@ const ManageCourses = () => {
     } catch (err) {
       console.error('Error fetching course staff or sections:', err.response || err);
       toast.error('Error fetching course staff: ' + (err.response?.data?.message || err.message));
-      setSections(prev => ({ ...prev, [courseId]: {} }));
+      setSections(prev => ({ ...prev, [String(courseId)]: {} }));
     } finally {
       setFetchingSections(false);
     }
@@ -172,7 +230,7 @@ const ManageCourses = () => {
       return;
     }
 
-    const currentSections = sections[selectedCourse.courseId] || {};
+    const currentSections = sections[String(selectedCourse.courseId)] || {};
     const isStaffAlreadyAllocated = Object.entries(currentSections).some(([sectionName, staffs]) =>
       sectionName !== selectedBatch && staffs.some(s => s.staffId === staffId)
     );
@@ -189,7 +247,7 @@ const ManageCourses = () => {
         console.error('Section API response:', sectionRes.data);
         return;
       }
-      const matchingSection = sectionRes.data.data.find(s => s.sectionName === selectedBatch);
+      const matchingSection = sectionRes.data.data.find(s => s.sectionName.replace('BatchBatch', 'Batch') === selectedBatch);
       if (!matchingSection || !matchingSection.sectionId) {
         toast.error(`Section ${selectedBatch} not found for course ${selectedCourse.courseCode}`);
         console.error('Section not found:', { selectedBatch, sections: sectionRes.data.data });
@@ -239,12 +297,6 @@ const ManageCourses = () => {
       if (res.status === 200) {
         console.log(`Deleted batch ${sectionName} for course ${courseCode}`);
         await fetchCourseStaff(selectedCourse.courseId);
-        setSections(prev => {
-          const updatedSections = { ...prev[selectedCourse.courseId] };
-          delete updatedSections[sectionName];
-          return { ...prev, [selectedCourse.courseId]: updatedSections };
-        });
-        setShowCourseDetailsModal(true);
         toast.success('Batch deleted successfully');
       } else {
         toast.error('Failed to delete batch: ' + (res.data?.message || 'Unknown error'));
@@ -275,7 +327,7 @@ const ManageCourses = () => {
   const handleEditStaff = (staffCourseId) => {
     const allocation = selectedCourse.allocations.find(a => a.staffCourseId === staffCourseId);
     if (allocation) {
-      setSelectedBatch(allocation.sectionName);
+      setSelectedBatch(allocation.sectionName.replace('BatchBatch', 'Batch'));
       setStaffSearch(allocation.staffName);
       setShowAllocateStaffModal(true);
       setShowCourseDetailsModal(false);
@@ -284,10 +336,6 @@ const ManageCourses = () => {
 
   const handleCourseClick = (course) => {
     setSelectedCourse(course);
-    setSections(prev => ({
-      ...prev,
-      [course.courseId]: prev[course.courseId] || {},
-    }));
     setShowCourseDetailsModal(true);
     fetchCourseStaff(course.courseId);
   };
@@ -471,7 +519,6 @@ const ManageCourses = () => {
           sections={sections}
           fetchingSections={fetchingSections}
           setShowCourseDetailsModal={setShowCourseDetailsModal}
-          setSections={setSections}
           openEditModal={openEditModal}
           setShowAddBatchModal={setShowAddBatchModal}
           handleDeleteBatch={handleDeleteBatch}

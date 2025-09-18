@@ -2,38 +2,33 @@ import React from "react";
 
 const StudentMarksTable = ({ coId, tool, students, updateStudentMark }) => {
   return (
-    <div className="p-4 overflow-x-auto">
-      <table className="min-w-full text-sm text-gray-900">
-        <thead>
-          <tr className="border-b border-gray-200">
-            <th className="text-left py-2">Roll No</th>
-            <th className="text-left py-2">Student Name</th>
-            <th className="text-left py-2">Marks</th>
+    <table className="w-full">
+      <thead>
+        <tr>
+          <th>Reg No</th>
+          <th>Name</th>
+          <th>{tool.toolName}</th>
+          {/* Add other tools if showing all for CO */}
+          <th>Consolidated</th>
+        </tr>
+      </thead>
+      <tbody>
+        {students.map((student) => (
+          <tr key={student.rollnumber}>
+            <td>{student.rollnumber}</td>
+            <td>{student.name}</td>
+            <td>
+              <input
+                type="number"
+                defaultValue={0} // Fetch from API
+                onChange={(e) => updateStudentMark(tool.toolId, student.rollnumber, parseInt(e.target.value))}
+              />
+            </td>
+            <td>{/* Calculate consolidated */}</td>
           </tr>
-        </thead>
-        <tbody>
-          {students.map((student) => (
-            <tr key={student.rollnumber} className="border-b border-gray-100">
-              <td className="py-2">{student.rollnumber}</td>
-              <td className="py-2">{student.name}</td>
-              <td className="py-2">
-                <input
-                  type="number"
-                  min="0"
-                  max={tool.maxMarks}
-                  value={tool.marks?.[student.rollnumber] || ""}
-                  onChange={(e) =>
-                    updateStudentMark(coId, tool.toolId, student.rollnumber, e.target.value)
-                  }
-                  className="w-20 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <span className="text-xs text-gray-500 ml-2">/ {tool.maxMarks}</span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+        ))}
+      </tbody>
+    </table>
   );
 };
 

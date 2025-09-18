@@ -1,13 +1,15 @@
 import React from "react";
 // import StaffSidebar from "../components/Sidebar/StaffSidebar";
 import { Outlet } from "react-router-dom";
+import Header from "../pages/staff/Header";
 
 const StaffLayout = () => {
   return (
-    <div className="flex">
-      <div className="flex-1 p-6 bg-gray-100 min-h-screen">
+    <div className="flex flex-col min-h-screen">
+      <Header />
+      <main className="flex-grow container mx-auto p-4">
         <Outlet />
-      </div>
+      </main>
     </div>
   );
 };

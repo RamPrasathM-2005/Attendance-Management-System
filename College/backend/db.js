@@ -212,7 +212,6 @@ const initDatabase = async () => {
                 coId INT PRIMARY KEY AUTO_INCREMENT,
                 courseCode VARCHAR(20) NOT NULL,
                 coNumber VARCHAR(10) NOT NULL,
-                weightage INT NOT NULL CHECK (weightage BETWEEN 0 AND 100),
                 UNIQUE (courseCode, coNumber),
                 CONSTRAINT fk_co_course FOREIGN KEY (courseCode) REFERENCES Course(courseCode)
                     ON UPDATE CASCADE ON DELETE CASCADE
@@ -314,7 +313,54 @@ const initDatabase = async () => {
             )
         `);
 
-        // Initial data for Department
+        // NEW: 16) CoursePartitions - Stores CO counts per partition for each course
+        await connection.execute(`
+            CREATE TABLE IF NOT EXISTS CoursePartitions (
+                partitionId INT PRIMARY KEY AUTO_INCREMENT,
+                courseCode VARCHAR(20) NOT NULL UNIQUE,
+                theoryCount INT DEFAULT 0,
+                practicalCount INT DEFAULT 0,
+                experientialCount INT DEFAULT 0,
+                createdBy VARCHAR(150),
+                updatedBy VARCHAR(150),
+                createdDate DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updatedDate DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                CONSTRAINT fk_partition_course FOREIGN KEY (courseCode) REFERENCES Course(courseCode)
+                    ON UPDATE CASCADE ON DELETE CASCADE
+            )
+        `);
+
+        // NEW: 17) COType - Associates type to each CO (extends CourseOutcome without altering it)
+        await connection.execute(`
+            CREATE TABLE IF NOT EXISTS COType (
+                coTypeId INT PRIMARY KEY AUTO_INCREMENT,
+                coId INT NOT NULL UNIQUE,
+                coType ENUM('THEORY', 'PRACTICAL', 'EXPERIENTIAL') NOT NULL,
+                createdBy VARCHAR(150),
+                updatedBy VARCHAR(150),
+                createdDate DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updatedDate DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                CONSTRAINT fk_cotype_co FOREIGN KEY (coId) REFERENCES CourseOutcome(coId)
+                    ON UPDATE CASCADE ON DELETE CASCADE
+            )
+        `);
+
+        // NEW: 18) ToolDetails - Adds maxMarks to each tool (extends COTool without altering it)
+        await connection.execute(`
+            CREATE TABLE IF NOT EXISTS ToolDetails (
+                toolDetailId INT PRIMARY KEY AUTO_INCREMENT,
+                toolId INT NOT NULL UNIQUE,
+                maxMarks INT NOT NULL CHECK (maxMarks > 0),
+                createdBy VARCHAR(150),
+                updatedBy VARCHAR(150),
+                createdDate DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updatedDate DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                CONSTRAINT fk_tooldetail_tool FOREIGN KEY (toolId) REFERENCES COTool(toolId)
+                    ON UPDATE CASCADE ON DELETE CASCADE
+            )
+        `);
+
+        // Initial data for Department (unchanged)
         await connection.execute(`
             INSERT IGNORE INTO Department (departmentId, departmentName, departmentCode, createdBy, updatedBy)
             VALUES

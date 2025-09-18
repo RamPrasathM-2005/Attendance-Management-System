@@ -1,6 +1,5 @@
-// src/pages/staff/Options.jsx
 import React from 'react';
-import { ChevronLeft, Users, FileText, BarChart3 } from 'lucide-react';
+import { ChevronLeft, Users, FileText, BarChart3, Calculator } from 'lucide-react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 
 const Options = () => {
@@ -22,34 +21,32 @@ const Options = () => {
       description: 'Manage course outcomes, tools, and student marks',
       icon: BarChart3,
       color: 'bg-blue-500 hover:bg-blue-600',
-      path: `/staff/marks-allocation/${course.id}`,
+      path: `/staff/marks-allocation/${course.id}/${course.sectionId}`, // Updated to include sectionId
     },
     {
-      id: 'reports',
-      title: 'Reports',
-      description: 'Generate and view various reports',
-      icon: FileText,
-      color: 'bg-green-500 hover:bg-green-600',
-      path: `/staff/reports/${course.id}`,
+      id: 'internal',
+      title: 'Internal Marks',
+      description: 'View consolidated internal marks and averages',
+      icon: Calculator,
+      color: 'bg-indigo-500 hover:bg-indigo-600',
+      path: `/staff/internal-marks/${course.id}`,
     },
-    {
-      id: 'attendance',
-      title: 'Attendance',
-      description: 'Track and manage student attendance',
-      icon: Users,
-      color: 'bg-purple-500 hover:bg-purple-600',
-      path: `/staff/attendance/${course.id}`,
-    },
+    // {
+    //   id: 'attendance',
+    //   title: 'Attendance',
+    //   description: 'Track and manage student attendance',
+    //   icon: Users,
+    //   color: 'bg-purple-500 hover:bg-purple-600',
+    //   path: `/staff/attendance/${course.id}`,
+    // },
   ];
 
   const handleBack = () => navigate('/staff/dashboard');
 
-  // ✅ FIXED: Use the option's path
   const handleOptionClick = (path) => navigate(path, { state: { course } });
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       {/* Header */}
       <div className="bg-white shadow-sm border-b mt-10 py-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -71,7 +68,6 @@ const Options = () => {
           </div>
         </div>
       </div>
-
 
       {/* Options Grid */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

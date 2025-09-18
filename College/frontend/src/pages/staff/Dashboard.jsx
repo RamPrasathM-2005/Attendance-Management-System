@@ -65,7 +65,7 @@ const Dashboard = () => {
                 id: course.id || `course-${index}`,
                 title: course.title || 'Untitled Course',
                 bgColor: colors[index % colors.length],
-                semester: course.semester || 'Unknown Semester',
+                semester:  course.semester || 'Unknown Semester',
                 degree: course.degree || 'Unknown Degree',
                 branch: course.branch || 'Unknown Branch',
                 batch: course.batch || 'Unknown Batch',
@@ -109,7 +109,7 @@ const Dashboard = () => {
     <ErrorBoundary>
       <div className="p-6 bg-gray-100 min-h-screen">
         <header className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
-          <h1 className="text-2xl font-bold text-gray-900">Hi, {user?.name.toUpperCase()}! 👋</h1>
+          {/* <h1 className="text-2xl font-bold text-gray-900">Hi, {user?.name.toUpperCase()}! 👋</h1> */}
         </header>
 
         <div className="mb-6">

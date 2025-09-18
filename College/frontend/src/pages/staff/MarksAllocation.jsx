@@ -1,64 +1,173 @@
-import React from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { ChevronLeft, Plus, ChevronDown, ChevronUp, Edit, Trash2, Download } from "lucide-react";
-import useMarkAllocation from "../../hooks/useMarkAllocation";
-import COModal from "../../components/modals/COModal";
-import ToolModal from "../../components/modals/ToolModal";
-import StudentMarksTable from "../../components/tables/StudentMarksTable";
-import MarksSummary from "../../components/tables/MarksSummary";
+// Fixed React Component: MarksAllocation.jsx
+// Changes:
+// - Added sectionId to useParams assuming route is now /marks/:courseId/:sectionId
+// - Passed sectionId to useMarkAllocation hook
+// - Fixed import handling to use state and button click (not direct onChange import)
+// - Removed conflicting handleImportClick definitions; used the version with importFile state
 
-const MarkAllocation = () => {
-  const location = useLocation();
+import React, { useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { ChevronLeft, Upload, Download, ChevronDown, ChevronUp } from 'lucide-react';
+import useMarkAllocation from '../../hooks/useMarkAllocation';
+import Swal from 'sweetalert2';
+import withReactContent from 'sweetalert2-react-content';
+
+const MySwal = withReactContent(Swal);
+
+const MarksAllocation = () => {
+  const { courseId, sectionId } = useParams(); // Added sectionId assuming updated route
   const navigate = useNavigate();
-  const { courseId } = useParams();
-
-  const course = location.state?.course ?? {
-    id: courseId,
-    name: courseId || "CS101 - Introduction to Programming",
-    semester: "2025 - 2026 ODD SEMESTER",
-  };
-
+  console.log('courseId from useParams:', courseId, 'sectionId:', sectionId);
   const {
+    partitions,
+    setNewPartition,
+    showPartitionModal,
+    setShowPartitionModal,
+    handleSavePartitions,
+    handlePartitionsConfirmation,
     courseOutcomes,
     students,
     selectedCO,
-    showCOModal,
-    showToolModal,
-    editingCO,
-    editingTool,
-    newCO,
-    newTool,
-    coCollapsed,
-    toolCollapsed,
-    toggleCoCollapse,
-    toggleToolCollapse,
-    calculateCOMarks,
-    calculateInternalMarks,
-    handleSaveCOs,
-    handleSaveStudentMarks,
-    handleSaveToolMarks,
-    handleSaveCO,
-    handleSaveTool,
-    updateStudentMark,
-    exportCoWiseCsv,
-    exportCourseWiseCsv,
-    deleteCO,
-    deleteTool,
-    setShowCOModal,
-    setEditingCO,
-    setNewCO,
     setSelectedCO,
+    selectedTool,
+    setSelectedTool,
+    showToolModal,
     setShowToolModal,
+    showImportModal,
+    setShowImportModal,
+    editingTool,
     setEditingTool,
+    newTool,
     setNewTool,
-  } = useMarkAllocation();
+    newPartition,
+    coCollapsed,
+    toggleCoCollapse,
+    tempTools,
+    setTempTools,
+    addTempTool,
+    handleSaveToolsForCO,
+    handleDeleteTool,
+    updateStudentMark,
+    handleSaveToolMarks,
+    handleImportMarks,
+    exportCoWiseCsv,
+    error,
+    setError,
+  } = useMarkAllocation(courseId, sectionId); // Passed sectionId to hook
+
+  const [importFile, setImportFile] = useState(null);
+
+  const calculateToolWeightageSum = (tools) => {
+    return tools.reduce((sum, tool) => sum + (tool.weightage || 0), 0);
+  };
+
+  const handleSavePartitionsClick = async () => {
+    const result = await handleSavePartitions(partitions.partitionId);
+    if (result.success) {
+      await handlePartitionsConfirmation();
+    } else {
+      MySwal.fire('Error', result.error, 'error');
+    }
+  };
+
+  const handleAddTempToolClick = () => {
+    if (!newTool.toolName || newTool.weightage <= 0 || newTool.maxMarks <= 0) {
+      MySwal.fire('Error', 'Tool name, weightage, and max marks are required', 'error');
+      return;
+    }
+    const isEdit = !!editingTool;
+    const selfUniqueId = isEdit ? editingTool.uniqueId : null;
+    // Check for duplicate tool name, excluding self if editing
+    const duplicate = tempTools.some(
+      (t) =>
+        t.toolName.toLowerCase() === newTool.toolName.toLowerCase() &&
+        t.uniqueId !== selfUniqueId
+    );
+    if (duplicate) {
+      MySwal.fire('Error', 'Tool with this name already exists for this CO', 'error');
+      return;
+    }
+    if (isEdit) {
+      // Update existing/temp tool in tempTools
+      setTempTools((prev) =>
+        prev.map((t) =>
+          t.uniqueId === selfUniqueId ? { ...newTool, uniqueId: t.uniqueId } : t
+        )
+      );
+    } else {
+      // Add new tool to tempTools
+      addTempTool(newTool);
+    }
+    setNewTool({ toolName: '', weightage: 0, maxMarks: 100 });
+    setShowToolModal(false);
+    setEditingTool(null);
+  };
+
+  const handleSaveToolsForCOClick = async (coId) => {
+    const result = await handleSaveToolsForCO(coId);
+    if (result.success) {
+      MySwal.fire('Success', result.message, 'success');
+    } else {
+      MySwal.fire('Error', result.error, 'error');
+    }
+  };
+
+  const handleDeleteToolClick = async (tool) => {
+    // Remove from tempTools (no backend call needed, as save will handle deletions)
+    setTempTools((prev) => prev.filter((t) => t.uniqueId !== tool.uniqueId));
+    MySwal.fire('Success', 'Tool removed from draft', 'success');
+  };
+
+  const handleSaveToolMarksClick = async () => {
+    const result = await handleSaveToolMarks();
+    if (result.success) {
+      MySwal.fire('Success', result.message, 'success');
+    } else {
+      MySwal.fire('Error', result.error, 'error');
+    }
+  };
+
+  const handleImportClick = async () => {
+    if (!importFile) {
+      MySwal.fire('Error', 'Please select a file to import', 'error');
+      return;
+    }
+    const result = await handleImportMarks(importFile);
+    if (result.success) {
+      MySwal.fire('Success', result.message, 'success');
+    } else {
+      MySwal.fire('Error', result.error, 'error');
+    }
+    setImportFile(null);
+    setShowImportModal(false);
+  };
+
+
+
+
+  
+  const handleFileChange = (e) => {
+    setImportFile(e.target.files[0]);
+  };
+
+  const handleSelectCO = (e) => {
+    const co = courseOutcomes.find(co => co.coId === parseInt(e.target.value)) || null;
+    setSelectedCO(co);
+    setSelectedTool(null);
+    // Load existing tools into tempTools for drafting/editing
+    setTempTools(co?.tools ? co.tools.map((t) => ({ ...t, uniqueId: t.toolId })) : []);
+  };
+
+  if (error) {
+    MySwal.fire('Error', error, 'error');
+    setError('');
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+    <div className="min-h-screen bg-gray-50 p-6">
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-wrap items-center justify-between py-6 gap-3">
+          <div className="flex items-center justify-between py-6">
             <div className="flex items-center">
               <button
                 onClick={() => navigate(-1)}
@@ -67,206 +176,368 @@ const MarkAllocation = () => {
                 <ChevronLeft className="h-5 w-5" />
               </button>
               <div>
-                <h1 className="text-xl font-semibold text-gray-900">Mark Allocation</h1>
-                <p className="text-sm text-gray-500">{course.name}</p>
+                <h1 className="text-xl font-semibold text-gray-900">Marks Allocation</h1>
+                <p className="text-sm text-gray-500">{courseId}</p>
               </div>
-            </div>
-            <div className="flex flex-wrap items-center space-x-2">
-              <button
-                onClick={() => setShowCOModal(true)}
-                className="bg-blue-600 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-md hover:bg-blue-700 flex items-center text-sm"
-              >
-                <Plus className="h-4 w-4 mr-2" /> Add Course Outcome
-              </button>
-              <button
-                onClick={handleSaveCOs}
-                className="bg-green-600 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-md hover:bg-green-700 flex items-center text-sm"
-              >
-                Save COs & Tools
-              </button>
             </div>
           </div>
         </div>
       </div>
 
-
-
-      {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="space-y-6">
-          {courseOutcomes.map((co) => (
-            <div key={co.coId} className="bg-white rounded-lg shadow-md">
-              <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-                <div className="flex-1">
-                  <h3 className="text-lg font-medium text-gray-900">{co.coNumber}</h3>
-                  <p className="text-sm text-gray-600 mt-1">Course Code: {co.courseCode}</p>
-                  <p className="text-sm text-blue-600 mt-2">Weightage: {co.weightage}%</p>
+        {/* Partitions Modal */}
+        {showPartitionModal && (
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <h3 className="text-lg font-semibold mb-4">Set Course Partitions</h3>
+              <div className="grid grid-cols-3 gap-4 mb-4">
+                <div>
+                  <label className="text-sm font-semibold">Theory COs</label>
+                  <input
+                    type="number"
+                    value={newPartition.theoryCount}
+                    onChange={(e) => setNewPartition({ ...newPartition, theoryCount: parseInt(e.target.value) || 0 })}
+                    className="w-full p-2 border rounded-lg"
+                    min="0"
+                  />
                 </div>
-                <div className="flex items-center space-x-2">
+                <div>
+                  <label className="text-sm font-semibold">Practical COs</label>
+                  <input
+                    type="number"
+                    value={newPartition.practicalCount}
+                    onChange={(e) => setNewPartition({ ...newPartition, practicalCount: parseInt(e.target.value) || 0 })}
+                    className="w-full p-2 border rounded-lg"
+                    min="0"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-semibold">Experiential COs</label>
+                  <input
+                    type="number"
+                    value={newPartition.experientialCount}
+                    onChange={(e) => setNewPartition({ ...newPartition, experientialCount: parseInt(e.target.value) || 0 })}
+                    className="w-full p-2 border rounded-lg"
+                    min="0"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setShowPartitionModal(false)}
+                  className="px-4 py-2 bg-gray-300 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSavePartitionsClick}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Course Partitions */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold">Course Partitions</h3>
+            <button
+              onClick={() => setShowPartitionModal(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg"
+            >
+              Edit Partitions
+            </button>
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <p className="text-sm text-gray-600">Theory COs</p>
+              <p className="text-lg font-medium">{partitions.theoryCount}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Practical COs</p>
+              <p className="text-lg font-medium">{partitions.practicalCount}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Experiential COs</p>
+              <p className="text-lg font-medium">{partitions.experientialCount}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Course Outcomes (Overview Only) */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <h3 className="text-lg font-semibold mb-4">Course Outcomes (COs)</h3>
+          {courseOutcomes.map((co, index) => (
+            <div key={co.coId} className="mb-4 border-b pb-4">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-4">
                   <button
                     onClick={() => toggleCoCollapse(co.coId)}
-                    className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md"
-                    title={coCollapsed[co.coId] ? "Expand" : "Collapse"}
+                    className="text-gray-600 hover:text-gray-900"
                   >
-                    {coCollapsed[co.coId] ? <ChevronDown className="h-5 w-5" /> : <ChevronUp className="h-5 w-5" />}
+                    {coCollapsed[co.coId] ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
                   </button>
+                  <span className="font-medium">{co.coNumber} ({co.coType})</span>
+                </div>
+                <div className="flex gap-2">
                   <button
-                    onClick={() => {
-                      setSelectedCO(co);
-                      setShowToolModal(true);
-                    }}
-                    className="bg-green-600 text-white px-3 py-2 rounded-md hover:bg-green-700 text-sm flex items-center"
+                    onClick={() => exportCoWiseCsv(co.coId)}
+                    className="px-3 py-1 bg-purple-600 text-white rounded-lg flex items-center"
                   >
-                    <Plus className="h-4 w-4 mr-1" /> Add Tool
-                  </button>
-                  <button
-                    onClick={() => {
-                      setEditingCO(co);
-                      setNewCO({
-                        coNumber: co.coNumber,
-                        weightage: co.weightage,
-                      });
-                      setShowCOModal(true);
-                    }}
-                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-md"
-                  >
-                    <Edit className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => deleteCO(co.coId)}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded-md"
-                  >
-                    <Trash2 className="h-4 w-4" />
+                    <Download className="w-4 h-4 mr-1" /> Export
                   </button>
                 </div>
               </div>
-
-              {!coCollapsed[co.coId] && co.tools.length > 0 && (
-                <div className="p-6 space-y-4">
-                  <h4 className="text-md font-medium text-gray-900 mb-4">Assessment Tools</h4>
-                  {co.tools.map((tool) => (
-                    <div key={tool.toolId} className="border border-gray-200 rounded-lg">
-                      <div className="p-4 bg-gray-50 flex justify-between items-center border-b border-gray-200">
-                        <div>
-                          <h5 className="font-medium text-gray-900">{tool.toolName}</h5>
-                          <p className="text-sm text-gray-600">
-                            Max Marks: {tool.maxMarks} | Weightage: {tool.weightage}%
-                          </p>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => toggleToolCollapse(tool.toolId)}
-                            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md"
-                            title={toolCollapsed[tool.toolId] ? "Expand" : "Collapse"}
-                          >
-                            {toolCollapsed[tool.toolId] ? <ChevronDown className="h-5 w-5" /> : <ChevronUp className="h-5 w-5" />}
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedCO(co);
-                              setEditingTool(tool);
-                              setNewTool({
-                                toolName: tool.toolName,
-                                maxMarks: tool.maxMarks,
-                                weightage: tool.weightage,
-                              });
-                              setShowToolModal(true);
-                            }}
-                            className="p-1 text-blue-600 hover:bg-blue-50 rounded"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => deleteTool(co.coId, tool.toolId)}
-                            className="p-1 text-red-600 hover:bg-red-50 rounded"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                      {!toolCollapsed[tool.toolId] && (
-                        <>
-                          <StudentMarksTable
-                            coId={co.coId}
-                            tool={tool}
-                            students={students}
-                            updateStudentMark={updateStudentMark}
-                          />
-                          <div className="flex justify-end p-4 border-t border-gray-200">
-                            <button
-                              onClick={() => handleSaveToolMarks(co.coId, tool.toolId)}
-                              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
-                            >
-                              Save Marks for this Tool
-                            </button>
-                          </div>
-                        </>
-                      )}
+              {!coCollapsed[co.coId] && (
+                <div className="mt-4 pl-8">
+                  <h4 className="text-sm font-semibold">Tools for {co.coNumber}</h4>
+                  {co.tools?.map((tool) => (
+                    <div key={tool.toolId} className="ml-4 mb-2">
+                      {tool.toolName} (Weightage: {tool.weightage}%, Max Marks: {tool.maxMarks})
                     </div>
                   ))}
-                  <div className="flex justify-between items-center mt-6">
-                    <button
-                      onClick={() => exportCoWiseCsv(co.coId)}
-                      className="flex items-center px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
-                    >
-                      <Download className="h-4 w-4 mr-1" /> Export {co.coNumber} Marks
-                    </button>
-                  </div>
+                  <p className="text-sm mt-2">
+                    Total Weightage: {calculateToolWeightageSum(co.tools || [])}%
+                    {calculateToolWeightageSum(co.tools || []) !== 100 && co.tools?.length > 0 && (
+                      <span className="text-red-500"> (Must be 100% to save)</span>
+                    )}
+                  </p>
                 </div>
               )}
             </div>
           ))}
         </div>
-        <MarksSummary
-          courseOutcomes={courseOutcomes}
-          students={students}
-          calculateCOMarks={calculateCOMarks}
-          calculateInternalMarks={calculateInternalMarks}
-        />
-        <div className="flex justify-end mt-8 space-x-4">
-          <button
-            onClick={exportCourseWiseCsv}
-            className="px-6 py-2 bg-purple-600 text-white font-medium rounded-md shadow-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
-          >
-            <Download className="h-4 w-4" /> Export Course Summary
-          </button>
-          <button
-            onClick={handleSaveStudentMarks}
-            className="px-6 py-2 bg-blue-600 text-white font-medium rounded-md shadow-lg hover:bg-blue-700 transition-colors"
-          >
-            Save All Student Marks
-          </button>
+
+        {/* Tool Modal */}
+        {showToolModal && (
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <h3 className="text-lg font-semibold mb-4">{editingTool ? 'Edit Tool' : 'Add Tool'}</h3>
+              <div className="mb-4">
+                <label className="text-sm font-semibold">Tool Name</label>
+                <input
+                  type="text"
+                  value={newTool.toolName}
+                  onChange={(e) => setNewTool({ ...newTool, toolName: e.target.value })}
+                  className="w-full p-2 border rounded-lg"
+                />
+              </div>
+              <div className="mb-4">
+                <label className="text-sm font-semibold">Weightage (%)</label>
+                <input
+                  type="number"
+                  value={newTool.weightage}
+                  onChange={(e) => setNewTool({ ...newTool, weightage: parseInt(e.target.value) || 0 })}
+                  className="w-full p-2 border rounded-lg"
+                  min="0"
+                  max="100"
+                />
+              </div>
+              <div className="mb-4">
+                <label className="text-sm font-semibold">Max Marks</label>
+                <input
+                  type="number"
+                  value={newTool.maxMarks}
+                  onChange={(e) => setNewTool({ ...newTool, maxMarks: parseInt(e.target.value) || 100 })}
+                  className="w-full p-2 border rounded-lg"
+                  min="1"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setShowToolModal(false)}
+                  className="px-4 py-2 bg-gray-300 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddTempToolClick}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg"
+                >
+                  {editingTool ? 'Update' : 'Add'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Import Modal */}
+        {showImportModal && (
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <h3 className="text-lg font-semibold mb-4">Import Marks for {selectedTool?.toolName}</h3>
+              <input
+                type="file"
+                accept=".csv"
+                onChange={handleFileChange}
+                className="mb-4"
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setShowImportModal(false)}
+                  className="px-4 py-2 bg-gray-300 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleImportClick}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg"
+                >
+                  Import
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Mark Entry Table */}
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h3 className="text-lg font-semibold mb-4">Mark Entry</h3>
+          <div className="mb-4">
+            <label className="text-sm font-semibold">Select CO</label>
+            <select
+              value={selectedCO?.coId || ''}
+              onChange={handleSelectCO}
+              className="w-full p-2 border rounded-lg"
+            >
+              <option value="">Select a CO</option>
+              {courseOutcomes.map(co => (
+                <option key={co.coId} value={co.coId}>{co.coNumber} ({co.coType})</option>
+              ))}
+            </select>
+          </div>
+          {selectedCO && (
+            <>
+              <div className="mt-4 mb-6">
+                <div className="flex justify-between items-center mb-2">
+                  <h4 className="text-sm font-semibold">Tools for {selectedCO.coNumber}</h4>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setEditingTool(null);
+                        setNewTool({ toolName: '', weightage: 0, maxMarks: 100 });
+                        setShowToolModal(true);
+                      }}
+                      className="px-3 py-1 bg-blue-600 text-white rounded-lg"
+                    >
+                      Add Tool
+                    </button>
+                    <button
+                      onClick={() => handleSaveToolsForCOClick(selectedCO.coId)}
+                      className="px-3 py-1 bg-green-600 text-white rounded-lg"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+                {/* Display draft tools from tempTools */}
+                {tempTools.map((tool) => (
+                  <div key={tool.uniqueId} className="ml-4 mb-2">
+                    <div className="flex justify-between items-center">
+                      <span>{tool.toolName} (Weightage: {tool.weightage}%, Max Marks: {tool.maxMarks})</span>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            setEditingTool(tool);
+                            setNewTool({
+                              toolName: tool.toolName,
+                              weightage: tool.weightage,
+                              maxMarks: tool.maxMarks,
+                              toolId: tool.toolId, // Preserve if existing
+                              uniqueId: tool.uniqueId, // Preserve for draft identification
+                            });
+                            setShowToolModal(true);
+                          }}
+                          className="px-3 py-1 bg-blue-600 text-white rounded-lg"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteToolClick(tool)}
+                          className="px-3 py-1 bg-red-600 text-white rounded-lg" // Fixed typo 'lue-600' to 'red-600'
+                        >
+                          Delete
+                        </button>
+                        {tool.toolId && ( // Only show import for existing (saved) tools
+                          <button
+                            onClick={() => {
+                              setSelectedTool(tool);
+                              setShowImportModal(true);
+                            }}
+                            className="px-3 py-1 bg-blue-600 text-white rounded-lg flex items-center"
+                          >
+                            <Upload className="w-4 h-4 mr-1" /> Import
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <p className="text-sm mt-2">
+                  Total Weightage: {calculateToolWeightageSum(tempTools)}%
+                  {calculateToolWeightageSum(tempTools) !== 100 && (
+                    <span className="text-red-500"> (Must be 100% to save)</span>
+                  )}
+                </p>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      <th className="border p-2 text-left">Name</th>
+                      <th className="border p-2 text-left">Reg No</th>
+                      {selectedCO.tools?.map(tool => (
+                        <th key={tool.toolId} className="border p-2">{tool.toolName} ({tool.maxMarks})</th>
+                      ))}
+                      <th className="border p-2">Consolidated</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {students.map(student => (
+                      <tr key={student.rollnumber}>
+                        <td className="border p-2">{student.name}</td>
+                        <td className="border p-2">{student.rollnumber}</td>
+                        {selectedCO.tools?.map(tool => (
+                          <td key={tool.toolId} className="border p-2">
+                            <input
+                              type="number"
+                              value={student.marks?.[tool.toolId] || ''}
+                              onChange={(e) => updateStudentMark(tool.toolId, student.rollnumber, parseInt(e.target.value) || 0)}
+                              className="w-full p-1 border rounded-lg"
+                              min="0"
+                              max={tool.maxMarks}
+                            />
+                          </td>
+                        ))}
+                        <td className="border p-2">
+                        {(
+                          selectedCO.tools?.reduce((sum, tool) => {
+                            const mark = student.marks?.[tool.toolId] || 0;
+                            return sum + (mark / tool.maxMarks) * (tool.weightage / 100);
+                          }, 0) * 100
+                        ).toFixed(2)}
+                      </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <button
+                  onClick={handleSaveToolMarksClick}
+                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg"
+                >
+                  Save Marks
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
-
-      <COModal
-        show={showCOModal}
-        newCO={newCO}
-        setNewCO={setNewCO}
-        editingCO={editingCO}
-        handleSaveCO={handleSaveCO}
-        onClose={() => {
-          setShowCOModal(false);
-          setEditingCO(null);
-          setNewCO({ coNumber: "", weightage: 0 });
-        }}
-      />
-
-      <ToolModal
-        show={showToolModal}
-        newTool={newTool}
-        setNewTool={setNewTool}
-        editingTool={editingTool}
-        selectedCO={selectedCO}
-        handleSaveTool={handleSaveTool}
-        onClose={() => {
-          setShowToolModal(false);
-          setEditingTool(null);
-          setNewTool({ toolName: "", maxMarks: 0, weightage: 0 });
-        }}
-      />
     </div>
   );
 };
 
-export default MarkAllocation;
+export default MarksAllocation;

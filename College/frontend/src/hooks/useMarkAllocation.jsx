@@ -1,399 +1,330 @@
-import { useState, useCallback } from "react";
-import Swal from "sweetalert2";
-import withReactContent from "sweetalert2-react-content";
+import { useState, useEffect } from 'react';
+import {
+  getCoursePartitions,
+  saveCoursePartitions,
+  updateCoursePartitions,
+  getCOsForCourse,
+  getToolsForCO,
+  updateTool,
+  deleteTool,
+  saveToolsForCO,
+  getStudentMarksForTool,
+  saveStudentMarksForTool,
+  importMarksForTool,
+  exportCoWiseCsv,
+  exportCourseWiseCsv,
+  getStudentsForSection,
+} from '../services/staffService';
+import { calculateCOMarks } from '../utils/calculations';
+import Swal from 'sweetalert2';
 
-const MySwal = withReactContent(Swal);
-
-// Mock data based on your DB schema.
-const initialCourseOutcomes = [
-  { 
-    coId: 1, 
-    courseCode: "CS101", 
-    coNumber: "CO1", 
-    weightage: 25, 
-    tools: [
-      { toolId: 101, coId: 1, toolName: "Quiz 1", maxMarks: 20, weightage: 10, marks: {} },
-      { toolId: 102, coId: 1, toolName: "Assignment 1", maxMarks: 50, weightage: 15, marks: {} },
-    ] 
-  },
-  { 
-    coId: 2, 
-    courseCode: "CS101", 
-    coNumber: "CO2", 
-    weightage: 30, 
-    tools: [
-      { toolId: 201, coId: 2, toolName: "Midterm Exam", maxMarks: 100, weightage: 30, marks: {} },
-    ] 
-  },
-  { 
-    coId: 3, 
-    courseCode: "CS101", 
-    coNumber: "CO3", 
-    weightage: 25, 
-    tools: [] 
-  },
-  { 
-    coId: 4, 
-    courseCode: "CS101", 
-    coNumber: "CO4", 
-    weightage: 20, 
-    tools: [] 
-  },
-];
-
-const initialStudents = [
-  { rollnumber: "2312063", name: "Ram Prasath M", studentId: 1 },
-  { rollnumber: "2312053", name: "Joel A", studentId: 2 },
-  { rollnumber: "2312061", name: "Saravankumar", studentId: 3 },
-  { rollnumber: "2312077", name: "Praveen kumar S", studentId: 4 },
-  { rollnumber: "2312078", name: "Balakrishna T", studentId: 5 },
-  { rollnumber: "2312080", name: "Mydeen Haan H", studentId: 6 },
-];
-
-const useMarkAllocation = () => {
-  const [courseOutcomes, setCourseOutcomes] = useState(initialCourseOutcomes);
-  const [students] = useState(initialStudents);
-
+const useMarkAllocation = (courseId, sectionId) => {
+  const [partitions, setPartitions] = useState({ theoryCount: 0, practicalCount: 0, experientialCount: 0 });
+  const [courseOutcomes, setCourseOutcomes] = useState([]);
+  const [students, setStudents] = useState([]);
   const [selectedCO, setSelectedCO] = useState(null);
-  const [showCOModal, setShowCOModal] = useState(false);
+  const [selectedTool, setSelectedTool] = useState(null);
+  const [showPartitionModal, setShowPartitionModal] = useState(false);
   const [showToolModal, setShowToolModal] = useState(false);
-  const [editingCO, setEditingCO] = useState(null);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [editingTool, setEditingTool] = useState(null);
-  const [newCO, setNewCO] = useState({ coNumber: "", weightage: 0 });
-  const [newTool, setNewTool] = useState({ toolName: "", maxMarks: 0, weightage: 0 });
-  
-  // States for collapse options
+  const [newPartition, setNewPartition] = useState({ theoryCount: 0, practicalCount: 0, experientialCount: 0 });
+  const [newTool, setNewTool] = useState({ toolName: '', weightage: 0, maxMarks: 100 });
   const [coCollapsed, setCoCollapsed] = useState({});
-  const [toolCollapsed, setToolCollapsed] = useState({});
+  const [error, setError] = useState('');
+  const [tempTools, setTempTools] = useState([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!courseId || courseId.startsWith('course-') || !sectionId) {
+        console.error('Error: Invalid courseId or sectionId:', courseId, sectionId);
+        setError('Invalid course or section selected. Please select a valid course and section.');
+        return;
+      }
+      try {
+        setError('');
+        const parts = await getCoursePartitions(courseId);
+        setPartitions(parts);
+        setNewPartition(parts);
+        setShowPartitionModal(!parts.partitionId);
+        const cos = await getCOsForCourse(courseId);
+        console.log('getCOsForCourse response:', cos);
+        if (!Array.isArray(cos)) {
+          console.error('Error: getCOsForCourse did not return an array:', cos);
+          setError('No course outcomes found for this course');
+          setCourseOutcomes([]);
+          return;
+        }
+        const cosWithTools = await Promise.all(
+          cos.map(async (co) => {
+            const tools = await getToolsForCO(co.coId);
+            return { ...co, tools };
+          })
+        );
+        setCourseOutcomes(cosWithTools);
+        const studentsData = await getStudentsForSection(courseId, sectionId);
+        console.log('getStudentsForSection response:', studentsData); // Added logging for debugging
+        // Validate that studentsData is an array
+        if (!Array.isArray(studentsData)) {
+          console.error('Error: getStudentsForSection did not return an array:', studentsData);
+          setError('No students found for this course section');
+          setStudents([]);
+          return;
+        }
+        const studentsWithMarks = await Promise.all(
+          studentsData.map(async (student) => {
+            const marks = {};
+            for (const co of cosWithTools) {
+              for (const tool of co.tools || []) {
+                try {
+                  const marksData = await getStudentMarksForTool(tool.toolId);
+                  const studentMark = marksData.find(m => m.rollnumber === student.rollnumber);
+                  marks[tool.toolId] = studentMark ? studentMark.marksObtained : 0;
+                } catch (markErr) {
+                  console.warn('Error fetching marks for tool:', tool.toolId, markErr);
+                  marks[tool.toolId] = 0;
+                }
+              }
+            }
+            return { ...student, marks };
+          })
+        );
+        setStudents(studentsWithMarks);
+      } catch (err) {
+        console.error('Error fetching data:', err);
+        setError(err.message || 'Failed to fetch data');
+      }
+    };
+    fetchData();
+  }, [courseId, sectionId]);
 
   const toggleCoCollapse = (coId) => {
     setCoCollapsed((prev) => ({ ...prev, [coId]: !prev[coId] }));
   };
-  
-  const toggleToolCollapse = (toolId) => {
-    setToolCollapsed((prev) => ({ ...prev, [toolId]: !prev[toolId] }));
-  };
 
-  const calculateCOMarks = useCallback((co, studentRollNumber) => {
-    const totalCOWeightage = co.weightage;
-    if (!co.tools.length || totalCOWeightage === 0) return 0;
-    
-    let totalScore = 0;
-    co.tools.forEach((tool) => {
-      const studentMark = tool.marks?.[studentRollNumber] || 0;
-      totalScore += (studentMark / (tool.maxMarks || 1)) * tool.weightage;
+  const handlePartitionsConfirmation = async () => {
+    const result = await Swal.fire({
+      title: 'Confirm Partitions',
+      text: 'Are you sure about the partition counts? This will create COs.',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, confirm',
+      cancelButtonText: 'No, edit'
     });
-    
-    return Math.round(totalScore);
-  }, []);
-
-  const calculateInternalMarks = useCallback((studentRollNumber) => {
-    let totalInternalMarks = 0;
-    let totalCourseWeightage = 0;
-    
-    courseOutcomes.forEach((co) => {
-      const coScore = calculateCOMarks(co, studentRollNumber);
-      totalInternalMarks += coScore;
-      totalCourseWeightage += co.weightage;
-    });
-    
-    if (totalCourseWeightage > 0) {
-      return Math.round((totalInternalMarks / totalCourseWeightage) * 100);
-    }
-    
-    return 0;
-  }, [courseOutcomes, calculateCOMarks]);
-
-  const validateCO = (co, editingId = null) => {
-    if (!co.coNumber.trim() || co.weightage < 0 || co.weightage > 100) {
-      return "Please provide a valid CO number and weightage (0-100).";
-    }
-    const totalCourseWeightage =
-      courseOutcomes.reduce((sum, c) => sum + (c.coId === editingId ? 0 : c.weightage), 0) + co.weightage;
-    if (totalCourseWeightage > 100) {
-      return `Total CO weightage cannot exceed 100%. Current total: ${totalCourseWeightage}%`;
-    }
-    return null;
-  };
-
-  const validateTool = (tool, selectedCO, editingId = null) => {
-    if (!tool.toolName.trim() || tool.maxMarks <= 0 || tool.weightage < 0 || tool.weightage > selectedCO.weightage) {
-      return `Please provide a valid tool name, max marks (>0), and a weightage between 0 and ${selectedCO.weightage}.`;
-    }
-    const totalToolWeightage =
-      selectedCO.tools.reduce((sum, t) => sum + (t.toolId === editingId ? 0 : t.weightage), 0) + tool.weightage;
-    if (totalToolWeightage > selectedCO.weightage) {
-      return `Total tool weightage for this CO cannot exceed ${selectedCO.weightage}%. Current total: ${totalToolWeightage}%`;
-    }
-    return null;
-  };
-
-  const handleSaveCOs = async () => {
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      MySwal.fire("Saved!", "All Course Outcomes and tools have been saved.", "success");
-    } catch (error) {
-      MySwal.fire("Error!", "Failed to save Course Outcomes and tools.", error);
-    }
-  };
-
-  const handleSaveStudentMarks = async () => {
-    try {
-      const allStudentMarks = courseOutcomes.flatMap(co => 
-        co.tools.flatMap(tool =>
-          students.map(student => ({
-            rollnumber: student.rollnumber,
-            toolId: tool.toolId,
-            marksObtained: tool.marks[student.rollnumber] || 0
-          }))
-        )
-      );
-
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      console.log("Saving all student marks:", allStudentMarks);
-      MySwal.fire("Saved!", "All student marks have been saved.", "success");
-    } catch (error) {
-      MySwal.fire("Error!", "Failed to save student marks.", error);
-    }
-  };
-
-  const handleSaveToolMarks = async (coId, toolId) => {
-    try {
-      const co = courseOutcomes.find(c => c.coId === coId);
-      const tool = co?.tools.find(t => t.toolId === toolId);
-      if (!tool) return;
-
-      const marksToSave = students.map(student => ({
-        rollnumber: student.rollnumber,
-        toolId: tool.toolId,
-        marksObtained: tool.marks[student.rollnumber] || 0
-      }));
-
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      console.log(`Saving marks for tool ${toolId}:`, marksToSave);
-      MySwal.fire("Saved!", "Marks for the assessment tool have been saved.", "success");
-    } catch (error) {
-      MySwal.fire("Error!", "Failed to save marks for the tool.", error);
-    }
-  };
-  
-  const handleSaveCO = async () => {
-    const errorMsg = validateCO(newCO, editingCO?.coId);
-    if (errorMsg) {
-      MySwal.fire({ icon: "error", title: "Invalid Input", text: errorMsg });
-      return;
-    }
-
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      
-      if (editingCO) {
-        setCourseOutcomes((cos) => cos.map((co) => (co.coId === editingCO.coId ? { ...co, ...newCO } : co)));
+    if (result.isConfirmed) {
+      const saveResult = await handleSavePartitions(partitions.partitionId);
+      if (saveResult.success) {
+        Swal.fire('Success', saveResult.message, 'success');
       } else {
-        const newId = courseOutcomes.length > 0 ? Math.max(...courseOutcomes.map((co) => co.coId)) + 1 : 1;
-        setCourseOutcomes([...courseOutcomes, { ...newCO, coId: newId, courseCode: "CS101", tools: [] }]);
+        Swal.fire('Error', saveResult.error, 'error');
       }
-  
-      setShowCOModal(false);
-      setEditingCO(null);
-      setNewCO({ coNumber: "", weightage: 0 });
-      MySwal.fire("Saved!", "Course Outcome has been saved.", "success");
-
-    } catch (error) {
-      MySwal.fire("Error!", "Failed to save Course Outcome.", error);
+    } else {
+      setShowPartitionModal(true);
     }
   };
 
-  const handleSaveTool = async () => {
-    const errorMsg = validateTool(newTool, selectedCO, editingTool?.toolId);
-    if (errorMsg) {
-      MySwal.fire({ icon: "error", title: "Invalid Input", text: errorMsg });
-      return;
+  const handleSavePartitions = async (partitionId) => {
+    if (!courseId || courseId.startsWith('course-')) {
+      const errMsg = 'Invalid course selected';
+      console.error(errMsg);
+      setError(errMsg);
+      return { success: false, error: errMsg };
     }
-
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      
-      const toolToSave = {
-        ...newTool,
-        toolId: editingTool ? editingTool.toolId : Date.now(),
-        marks: editingTool ? editingTool.marks : {},
-      };
-  
-      setCourseOutcomes((cos) =>
-        cos.map((co) =>
-          co.coId === selectedCO.coId
-            ? {
-                ...co,
-                tools: editingTool
-                  ? co.tools.map((t) => (t.toolId === editingTool.toolId ? toolToSave : t))
-                  : [...co.tools, toolToSave],
-              }
-            : co
-        )
+      setError('');
+      console.log('Saving partitions for courseId:', courseId, 'Data:', newPartition);
+      if (partitionId) {
+        await updateCoursePartitions(courseId, newPartition);
+      } else {
+        await saveCoursePartitions(courseId, newPartition);
+      }
+      setPartitions(newPartition);
+      setShowPartitionModal(false);
+      const cos = await getCOsForCourse(courseId);
+      console.log('getCOsForCourse after save partitions:', cos);
+      if (!Array.isArray(cos)) {
+        console.error('Error: getCOsForCourse did not return an array after saving partitions:', cos);
+        setError('Failed to load course outcomes after saving partitions');
+        return { success: false, error: 'Failed to load course outcomes' };
+      }
+      const cosWithTools = await Promise.all(
+        cos.map(async (co) => {
+          const tools = await getToolsForCO(co.coId);
+          return { ...co, tools };
+        })
       );
-  
-      setShowToolModal(false);
-      setEditingTool(null);
-      setNewTool({ toolName: "", maxMarks: 0, weightage: 0 });
-      MySwal.fire("Saved!", "Assessment Tool has been saved.", "success");
-      
-    } catch (error) {
-      MySwal.fire("Error!", "Failed to save Assessment Tool.", error);
+      setCourseOutcomes(cosWithTools);
+      return { success: true, message: 'Partitions and COs saved successfully' };
+    } catch (err) {
+      console.error('Error saving partitions:', err);
+      const errMsg = err.response?.data?.message || err.message || 'Failed to save partitions';
+      setError(errMsg);
+      return { success: false, error: errMsg };
     }
   };
 
-  const updateStudentMark = (coId, toolId, studentRollNumber, marks) => {
-    const parsedMarks = parseFloat(marks);
-    if (isNaN(parsedMarks) || parsedMarks < 0) return;
-    const tool = courseOutcomes.find((co) => co.coId === coId)?.tools.find((t) => t.toolId === toolId);
-    if (tool && parsedMarks > tool.maxMarks) return;
+  const addTempTool = (tool) => {
+    setTempTools((prev) => [...prev, { ...tool, uniqueId: Date.now() }]);
+  };
 
-    setCourseOutcomes((cos) =>
-      cos.map((co) =>
-        co.coId === coId
-          ? {
-              ...co,
-              tools: co.tools.map((tool) =>
-                tool.toolId === toolId ? { ...tool, marks: { ...tool.marks, [studentRollNumber]: parsedMarks } } : tool
-              ),
-            }
-          : co
+  const handleSaveToolsForCO = async (coId) => {
+    const co = courseOutcomes.find(c => c.coId === coId);
+    if (!co) {
+      const errMsg = 'CO not found';
+      setError(errMsg);
+      return { success: false, error: errMsg };
+    }
+    const totalWeightage = tempTools.reduce((sum, tool) => sum + (tool.weightage || 0), 0);
+    if (totalWeightage !== 100) {
+      const errMsg = 'Total tool weightage for this CO must be exactly 100%';
+      setError(errMsg);
+      return { success: false, error: errMsg };
+    }
+    try {
+      setError('');
+      const toolsToSave = tempTools.map(({ uniqueId, ...tool }) => tool);
+      await saveToolsForCO(coId, { tools: toolsToSave });
+      const updatedTools = await getToolsForCO(coId);
+      setCourseOutcomes((prev) =>
+        prev.map((c) => (c.coId === coId ? { ...c, tools: updatedTools } : c))
+      );
+      setSelectedCO({ ...selectedCO, tools: updatedTools });
+      setTempTools([]);
+      return { success: true, message: 'Tools saved successfully' };
+    } catch (err) {
+      const errMsg = err.response?.data?.message || err.message || 'Failed to save tools';
+      setError(errMsg);
+      return { success: false, error: errMsg };
+    }
+  };
+
+  const handleDeleteTool = async (toolId) => {
+    try {
+      setError('');
+      await deleteTool(toolId);
+      const updatedTools = await getToolsForCO(selectedCO.coId);
+      setCourseOutcomes((prev) =>
+        prev.map((co) => (co.coId === selectedCO.coId ? { ...co, tools: updatedTools } : co))
+      );
+      setSelectedCO({ ...selectedCO, tools: updatedTools });
+      return { success: true, message: 'Tool deleted successfully' };
+    } catch (err) {
+      console.error('Error deleting tool:', err);
+      const errMsg = err.response?.data?.message || err.message || 'Failed to delete tool';
+      setError(errMsg);
+      return { success: false, error: errMsg };
+    }
+  };
+
+  const updateStudentMark = (toolId, rollnumber, marks) => {
+    setStudents((prev) =>
+      prev.map((s) =>
+        s.rollnumber === rollnumber ? { ...s, marks: { ...s.marks, [toolId]: marks } } : s
       )
     );
   };
 
-  const exportCoWiseCsv = (coId) => {
-    const co = courseOutcomes.find(c => c.coId === coId);
-    if (!co) return;
-
-    const headers = ["Roll Number", "Student Name", ...co.tools.map(t => `${t.toolName} (Max: ${t.maxMarks})`)];
-    const rows = students.map(student => {
-      const marks = co.tools.map(tool => tool.marks[student.rollnumber] || 0);
-      return [student.rollnumber, student.name, ...marks];
-    });
-
-    const csvContent = [
-      headers.join(","),
-      ...rows.map(e => e.join(","))
-    ].join("\n");
-    
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `CO_${co.coNumber}_Marks.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    MySwal.fire("Exported!", "CO marks exported successfully.", "success");
-  };
-
-  const exportCourseWiseCsv = () => {
-    const headers = ["Roll Number", "Student Name", ...courseOutcomes.map(co => `${co.coNumber} (${co.weightage}%)`), "Internal Marks"];
-    const rows = students.map(student => {
-      const coMarks = courseOutcomes.map(co => calculateCOMarks(co, student.rollnumber));
-      const internalMarks = calculateInternalMarks(student.rollnumber);
-      return [student.rollnumber, student.name, ...coMarks, internalMarks];
-    });
-
-    const csvContent = [
-      headers.join(","),
-      ...rows.map(e => e.join(","))
-    ].join("\n");
-    
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", "Course_Marks_Summary.csv");
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    MySwal.fire("Exported!", "Course marks summary exported successfully.", "success");
-  };
-
-  const deleteCO = async (coId) => {
-    const result = await MySwal.fire({
-      title: "Are you sure?",
-      text: "This CO will be permanently deleted.",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Yes, delete it!",
-      cancelButtonText: "Cancel",
-      customClass: {
-        confirmButton: "bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded",
-        cancelButton: "bg-gray-300 hover:bg-gray-400 text-black font-bold py-2 px-4 rounded",
-      },
-      buttonsStyling: false,
-    });
-    if (result.isConfirmed) {
-      setCourseOutcomes((cos) => cos.filter((co) => co.coId !== coId));
-      MySwal.fire("Deleted!", "The CO has been deleted.", "success");
+  const handleSaveToolMarks = async () => {
+    if (!selectedCO) {
+      const errMsg = 'No CO selected';
+      setError(errMsg);
+      return { success: false, error: errMsg };
+    }
+    if (!selectedCO.tools || selectedCO.tools.length === 0) {
+      const errMsg = 'No tools defined for the selected CO';
+      setError(errMsg);
+      return { success: false, error: errMsg };
+    }
+    if (!students || students.length === 0) {
+      const errMsg = 'No students enrolled in this course section';
+      setError(errMsg);
+      return { success: false, error: errMsg };
+    }
+    try {
+      setError('');
+      console.log('Saving marks for CO:', selectedCO.coId, 'Tools:', selectedCO.tools, 'Students:', students);
+      for (const tool of selectedCO.tools) {
+        const marks = students.map((s) => ({
+          rollnumber: s.rollnumber,
+          marksObtained: s.marks?.[tool.toolId] || 0,
+        }));
+        console.log(`Sending marks for tool ${tool.toolId}:`, marks);
+        await saveStudentMarksForTool(tool.toolId, marks);
+      }
+      return { success: true, message: 'Marks saved successfully' };
+    } catch (err) {
+      console.error('Error saving marks:', err);
+      const errMsg = err.response?.data?.message || err.message || 'Failed to save marks';
+      setError(errMsg);
+      return { success: false, error: errMsg };
     }
   };
 
-  const deleteTool = async (coId, toolId) => {
-    const result = await MySwal.fire({
-      title: "Are you sure?",
-      text: "This tool will be permanently deleted.",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Yes, delete it!",
-      cancelButtonText: "Cancel",
-      customClass: {
-        confirmButton: "bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded",
-        cancelButton: "bg-gray-300 hover:bg-gray-400 text-black font-bold py-2 px-4 rounded",
-      },
-      buttonsStyling: false,
-    });
-    if (result.isConfirmed) {
-      setCourseOutcomes((cos) =>
-        cos.map((co) =>
-          co.coId === coId ? { ...co, tools: co.tools.filter((tool) => tool.toolId !== toolId) } : co
-        )
-      );
-      MySwal.fire("Deleted!", "The tool has been deleted.", "success");
-    }
-  };
-  
+  const handleImportMarks = async (file) => {
+  if (!selectedTool) return { success: false, error: 'No tool selected for import' };
+  try {
+    setError('');
+    await importMarksForTool(selectedTool.toolId, file);
+    // Re-fetch marks for the entire CO to refresh UI
+    const updatedTools = await getToolsForCO(selectedCO.coId);
+    const updatedStudents = await Promise.all(
+      students.map(async (s) => {
+        const newMarks = {};
+        for (const tool of updatedTools) {
+          const marksData = await getStudentMarksForTool(tool.toolId);
+          const studentMark = marksData.find(m => m.rollnumber === s.rollnumber);
+          newMarks[tool.toolId] = studentMark ? studentMark.marksObtained : 0;
+        }
+        return { ...s, marks: newMarks };
+      })
+    );
+    setStudents(updatedStudents);
+    return { success: true, message: 'Marks imported successfully' };
+  } catch (err) {
+    console.error('Error importing marks:', err);
+    const errMsg = err.response?.data?.message || err.message || 'Failed to import marks';
+    setError(errMsg);
+    return { success: false, error: errMsg };
+  }
+};
+
   return {
+    partitions,
+    setNewPartition,
+    showPartitionModal,
+    setShowPartitionModal,
+    handleSavePartitions,
+    handlePartitionsConfirmation,
     courseOutcomes,
     students,
     selectedCO,
-    showCOModal,
+    setSelectedCO,
+    selectedTool,
+    setSelectedTool,
     showToolModal,
-    editingCO,
+    setShowToolModal,
+    showImportModal,
+    setShowImportModal,
     editingTool,
-    newCO,
+    setEditingTool,
     newTool,
+    setNewTool,
+    newPartition,
     coCollapsed,
-    toolCollapsed,
     toggleCoCollapse,
-    toggleToolCollapse,
-    calculateCOMarks,
-    calculateInternalMarks,
-    handleSaveCOs,
-    handleSaveStudentMarks,
-    handleSaveToolMarks,
-    handleSaveCO,
-    handleSaveTool,
+    tempTools,
+    setTempTools,
+    addTempTool,
+    handleSaveToolsForCO,
+    handleDeleteTool,
     updateStudentMark,
+    handleSaveToolMarks,
+    handleImportMarks,
     exportCoWiseCsv,
     exportCourseWiseCsv,
-    deleteCO,
-    deleteTool,
-    setShowCOModal,
-    setEditingCO,
-    setNewCO,
-    setSelectedCO,
-    setShowToolModal,
-    setEditingTool,
-    setNewTool,
+    calculateCOMarks,
+    error,
+    setError,
   };
 };
 

@@ -114,46 +114,6 @@ const AdminSidebar = () => {
         </nav>
 
         {/* Profile Section - fixed at bottom */}
-        <div className="border-t border-gray-700 p-3 flex-shrink-0 relative">
-          <button
-            onClick={() => setIsProfileOpen(!isProfileOpen)}
-            className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-gray-700 transition-all duration-200"
-          >
-            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-              <Settings className="w-4 h-4 text-white" /> {/* Using Settings as a placeholder for user icon */}
-            </div>
-            <div className="flex-1 text-left">
-              <p className="text-sm font-medium">{currentUser.name}</p>
-              <p className="text-xs text-gray-400">{currentUser.role}</p>
-            </div>
-          </button>
-
-          {/* Profile Dropdown */}
-          {isProfileOpen && (
-            <div className="absolute bottom-full left-3 right-3 mb-2 bg-gray-700 rounded-lg shadow-lg border border-gray-600 z-40">
-              <div className="p-3 border-b border-gray-600">
-                <p className="text-sm font-medium">{currentUser.name}</p>
-                <p className="text-xs text-gray-400">{currentUser.email}</p>
-              </div>
-              <div className="py-1">
-                <button
-                  onClick={handleViewProfile}
-                  className="w-full flex items-center space-x-3 px-4 py-2 text-left hover:bg-gray-600 transition-colors"
-                >
-                  <Settings className="w-4 h-4" />
-                  <span className="text-sm">View Details</span>
-                </button>
-                <button
-                  onClick={handleLogout}
-                  className="w-full flex items-center space-x-3 px-4 py-2 text-left hover:bg-gray-600 text-red-400 hover:text-red-300 transition-colors"
-                >
-                  <LogOut className="w-4 h-4" />
-                  <span className="text-sm">Logout</span>
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Hamburger button */}

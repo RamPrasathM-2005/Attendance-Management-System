@@ -1,11 +1,12 @@
-// src/hooks/useManageStaffFilters.js
 import { useState, useMemo } from 'react';
 
-const useManageStaffFilters = (staffList, courses, selectedStaff, courseSearch, courseFilters) => {
+const useManageStaffFilters = (staffList, courses, selectedStaff) => {
   const [filters, setFilters] = useState({ dept: '', semester: '', batch: '' });
   const [nameSearch, setNameSearch] = useState('');
   const [sortBy, setSortBy] = useState('staffId');
   const [sortOrder, setSortOrder] = useState('desc');
+  const [courseSearch, setCourseSearch] = useState('');
+  const [courseFilters, setCourseFilters] = useState({ dept: '', semester: '', batch: '' });
 
   const getFilteredStaff = () => {
     return staffList
@@ -67,6 +68,10 @@ const useManageStaffFilters = (staffList, courses, selectedStaff, courseSearch, 
     setSortBy,
     sortOrder,
     setSortOrder,
+    courseSearch,
+    setCourseSearch,
+    courseFilters,
+    setCourseFilters,
     getFilteredStaff,
     getFilteredCourses,
     handleSort,

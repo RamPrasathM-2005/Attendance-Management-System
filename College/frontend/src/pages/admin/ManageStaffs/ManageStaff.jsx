@@ -1,5 +1,4 @@
-// src/components/ManageStaff.js
-import React, { useState } from 'react';
+import React from 'react';
 import { Users } from 'lucide-react';
 import Filters from './Filters';
 import StaffCard from './StaffCard';
@@ -9,32 +8,32 @@ import AddBatchModal from './AddBatchModal';
 import EditBatchModal from './EditBatchModal';
 import StudentsModal from './StudentsModal';
 import useManageStaffData from './hooks/useManageStaffData';
-import useManageStaffHandlers from './hooks/useManageStaffHandlers';
 import useManageStaffFilters from './hooks/useManageStaffFilters';
+import useManageStaffHandlers from './hooks/useManageStaffHandlers';
 
 const ManageStaff = () => {
-  const [showStaffDetailsModal, setShowStaffDetailsModal] = useState(false);
-  const [showAllocateCourseModal, setShowAllocateCourseModal] = useState(false);
-  const [showEditBatchModal, setShowEditBatchModal] = useState(false);
-  const [showStudentsModal, setShowStudentsModal] = useState(false);
-  const [showAddBatchModal, setShowAddBatchModal] = useState(false);
-  const [selectedStaff, setSelectedStaff] = useState(null);
-  const [selectedCourse, setSelectedCourse] = useState(null);
-  const [selectedSectionId, setSelectedSectionId] = useState('');
-  const [selectedStaffCourse, setSelectedStaffCourse] = useState(null);
-  const [selectedCourseStudents, setSelectedCourseStudents] = useState([]);
-  const [selectedCourseCode, setSelectedCourseCode] = useState('');
-  const [courseSearch, setCourseSearch] = useState('');
-  const [courseFilters, setCourseFilters] = useState({ dept: '', semester: '', batch: '' });
-  const [expandedCourses, setExpandedCourses] = useState([]);
-  const [operationFromModal, setOperationFromModal] = useState(false);
-  const [newBatchForm, setNewBatchForm] = useState({ numberOfBatches: 1 });
-  const [operationLoading, setOperationLoading] = useState(false);
-
-  const { staffList, setStaffList, courses, semesters, batches, departments, loading, error } = useManageStaffData(
+  const {
+    staffList,
+    courses,
+    semesters,
+    batches,
+    departments,
+    loading,
+    error,
     selectedStaff,
-    setSelectedStaff
-  );
+    setSelectedStaff,
+    selectedCourse,
+    setSelectedCourse,
+    selectedSectionId,
+    setSelectedSectionId,
+    selectedStaffCourse,
+    setSelectedStaffCourse,
+    selectedCourseStudents,
+    setSelectedCourseStudents,
+    selectedCourseCode,
+    setSelectedCourseCode,
+    fetchData,
+  } = useManageStaffData();
 
   const {
     filters,
@@ -42,10 +41,17 @@ const ManageStaff = () => {
     nameSearch,
     setNameSearch,
     sortBy,
-    handleSort,
+    setSortBy,
+    sortOrder,
+    setSortOrder,
+    courseSearch,
+    setCourseSearch,
+    courseFilters,
+    setCourseFilters,
     getFilteredStaff,
     getFilteredCourses,
-  } = useManageStaffFilters(staffList, courses, selectedStaff, courseSearch, courseFilters);
+    handleSort,
+  } = useManageStaffFilters(staffList, courses, selectedStaff);
 
   const {
     handleStaffClick,
@@ -54,32 +60,38 @@ const ManageStaff = () => {
     handleRemoveCourse,
     handleEditBatch,
     handleViewStudents,
-  } = useManageStaffHandlers({
-    selectedCourse,
-    newBatchForm,
-    selectedStaff,
-    selectedSectionId,
-    selectedStaffCourse,
-    courses,
-    operationFromModal,
-    setOperationLoading,
-    setShowAddBatchModal,
-    setNewBatchForm,
-    setShowAllocateCourseModal,
-    setSelectedCourse,
-    setSelectedSectionId,
-    setCourseSearch,
-    setCourseFilters,
-    setExpandedCourses,
-    setSelectedStaff,
-    setShowEditBatchModal,
-    setSelectedStaffCourse,
-    setSelectedCourseStudents,
-    setSelectedCourseCode,
-    setShowStudentsModal,
+    showStaffDetailsModal,
     setShowStaffDetailsModal,
+    showAllocateCourseModal,
+    setShowAllocateCourseModal,
+    showAddBatchModal,
+    setShowAddBatchModal,
+    showEditBatchModal,
+    setShowEditBatchModal,
+    showStudentsModal,
+    setShowStudentsModal,
+    expandedCourses,
+    setExpandedCourses,
+    operationLoading,
+    operationFromModal,
     setOperationFromModal,
-    setStaffList, // Pass setStaffList
+    newBatchForm,
+    setNewBatchForm,
+  } = useManageStaffHandlers({
+    selectedStaff,
+    setSelectedStaff,
+    selectedCourse,
+    setSelectedCourse,
+    selectedSectionId,
+    setSelectedSectionId,
+    selectedStaffCourse,
+    setSelectedStaffCourse,
+    selectedCourseCode,
+    setSelectedCourseCode,
+    selectedCourseStudents,
+    setSelectedCourseStudents,
+    courses,
+    fetchData,
   });
 
   if (loading) return <div className="p-6 text-center text-gray-600">Loading...</div>;
@@ -105,7 +117,7 @@ const ManageStaff = () => {
       <div className="w-full max-w-7xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {getFilteredStaff().map(staff => (
           <StaffCard
-            key={`${staff.staffId}-${staff.allocatedCourses.map(c => `${c.courseCode}-${c.sectionId}`).join('-')}`} // Unique key
+            key={staff.staffId}
             staff={staff}
             handleStaffClick={handleStaffClick}
             toggleCourses={() => setExpandedCourses(prev =>
